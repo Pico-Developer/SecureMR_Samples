@@ -273,8 +273,8 @@ void android_main(struct android_app* app) {
       program->PollActions();
       program->RenderFrame();
     }
-    app->activity->vm->DetachCurrentThread();
     program->DestroySecureMr();
+    app->activity->vm->DetachCurrentThread();
   } catch (const std::exception& ex) {
     Log::Write(Log::Level::Error, ex.what());
   } catch (...) {

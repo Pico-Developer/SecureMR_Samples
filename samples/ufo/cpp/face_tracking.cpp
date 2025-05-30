@@ -44,6 +44,9 @@ FaceTracker::FaceTracker(const XrInstance& instance, const XrSession& session)
 
 FaceTracker::~FaceTracker() {
   keepRunning = false;
+  if (pipelineInitializer && pipelineInitializer->joinable()) {
+    pipelineInitializer->join();
+  }
   for (auto& runner : pipelineRunners) {
     if (runner.joinable()) runner.join();
   }

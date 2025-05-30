@@ -10,6 +10,9 @@ FaceTrackingRaw::FaceTrackingRaw(const XrInstance &instance, const XrSession &se
 
 FaceTrackingRaw::~FaceTrackingRaw() {
   keepRunning = false;
+  if (pipelineInitializer && pipelineInitializer->joinable()) {
+    pipelineInitializer->join();
+  }
   for (auto &runner : pipelineRunners) {
     if (runner.joinable()) runner.join();
   }

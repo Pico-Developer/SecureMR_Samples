@@ -48,6 +48,9 @@ PoseDetector::PoseDetector(const XrInstance& instance, const XrSession& session)
 
 PoseDetector::~PoseDetector() {
   keepRunning = false;
+  if (pipelineInitializer && pipelineInitializer->joinable()) {
+    pipelineInitializer->join();
+  }
   for (auto& runner : pipelineRunners) {
     if (runner.joinable()) runner.join();
   }

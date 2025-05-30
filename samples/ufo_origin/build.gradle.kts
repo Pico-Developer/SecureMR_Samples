@@ -48,7 +48,7 @@ android {
     sourceSets {
         getByName("main") {
             manifest.srcFile("AndroidManifest.xml")
-            assets.srcDirs("../../assets/common", "../../assets/ufo")
+            assets.srcDirs("../../assets/common", "../../assets/UFO")
         }
     }
     packaging {

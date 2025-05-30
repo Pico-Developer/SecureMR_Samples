@@ -47,6 +47,9 @@ YoloDetector::YoloDetector(const XrInstance& instance, const XrSession& session)
 
 YoloDetector::~YoloDetector() {
   keepRunning = false;
+  if (pipelineInitializer && pipelineInitializer->joinable()) {
+    pipelineInitializer->join();
+  }
   for (auto& runner : pipelineRunners) {
     if (runner.joinable()) runner.join();
   }
