@@ -1,10 +1,18 @@
 # SecureMR Samples
 
-Samples for SecureMR.
+## Samples for SecureMR.
 
 | Face tracking | Pose estimation | YOLO |
 |:-------------:|:---------------:|:----:|
 | ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
+
+## Models Used in Samples
+
+| Demo | Model | Source |
+|------|-------|--------|
+| UFO (Face Detection) | MediaPipe Face Detection | [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face?searchTerm=face) |
+| Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
+| YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
 
 ## Project aims
 
