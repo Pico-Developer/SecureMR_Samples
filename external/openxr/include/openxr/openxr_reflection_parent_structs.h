@@ -66,16 +66,21 @@ This file contains expansion macros (X Macros) for OpenXR structures that have a
     _avail(XrEventDataSpaceEraseCompleteFB, XR_TYPE_EVENT_DATA_SPACE_ERASE_COMPLETE_FB) \
     _avail(XrEventDataSpaceShareCompleteFB, XR_TYPE_EVENT_DATA_SPACE_SHARE_COMPLETE_FB) \
     _avail(XrEventDataSpaceListSaveCompleteFB, XR_TYPE_EVENT_DATA_SPACE_LIST_SAVE_COMPLETE_FB) \
-    _avail(XrEventDataPassthroughLayerResumedMETA, XR_TYPE_EVENT_DATA_PASSTHROUGH_LAYER_RESUMED_META) \
-    _avail(XrEventDataHeadsetFitChangedML, XR_TYPE_EVENT_DATA_HEADSET_FIT_CHANGED_ML) \
-    _avail(XrEventDataEyeCalibrationChangedML, XR_TYPE_EVENT_DATA_EYE_CALIBRATION_CHANGED_ML) \
-    _avail(XrEventDataRequestMotionTrackerCompletePICO, XR_TYPE_EVENT_DATA_REQUEST_MOTION_TRACKER_COMPLETE_PICO) \
+    _avail(XrEventDataPassthroughLayerResumedMETA, XR_TYPE_EVENT_DATA_PASSTHROUGH_LAYER_RESUMED_META)                                           \
+                                  _avail(XrEventDataSenseDataProviderStateChangedBD,                                              \
+                                         XR_TYPE_EVENT_DATA_SENSE_DATA_PROVIDER_STATE_CHANGED_BD)                                 \
+                                      _avail(XrEventDataSenseDataUpdatedBD, XR_TYPE_EVENT_DATA_SENSE_DATA_UPDATED_BD) _avail(XrEventDataHeadsetFitChangedML, XR_TYPE_EVENT_DATA_HEADSET_FIT_CHANGED_ML) \
+    _avail(XrEventDataEyeCalibrationChangedML, XR_TYPE_EVENT_DATA_EYE_CALIBRATION_CHANGED_ML)                                   \
+                                              _avail(XrEventDataSpatialDiscoveryRecommendedEXT,                                   \
+                                                     XR_TYPE_EVENT_DATA_SPATIAL_DISCOVERY_RECOMMENDED_EXT)                        \
+                                                  _avail(XrEventDataRequestMotionTrackerCompletePICO, XR_TYPE_EVENT_DATA_REQUEST_MOTION_TRACKER_COMPLETE_PICO) \
     _avail(XrEventDataMotionTrackerConnectionStateChangedPICO, XR_TYPE_EVENT_DATA_MOTION_TRACKER_CONNECTION_STATE_CHANGED_PICO) \
-    _avail(XrEventDataMotionTrackerPowerKeyEventPICO, XR_TYPE_EVENT_DATA_MOTION_TRACKER_POWER_KEY_EVENT_PICO) \
-
-
-
-
+    _avail(XrEventDataMotionTrackerPowerKeyEventPICO, XR_TYPE_EVENT_DATA_MOTION_TRACKER_POWER_KEY_EVENT_PICO)             \
+                                                              _avail(                                                             \
+                                                                  XrEventDataSenseDataProviderStateChangedPICO,                   \
+                                                                  XR_TYPE_EVENT_DATA_SENSE_DATA_PROVIDER_STATE_CHANGED_PICO)      \
+                                                                  _avail(XrEventDataSenseDataUpdatedPICO,                         \
+                                                                         XR_TYPE_EVENT_DATA_SENSE_DATA_UPDATED_PICO)
 
 /// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is XrHapticBaseHeader
 #define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrHapticBaseHeader(_avail, _unavail) \
@@ -267,14 +272,33 @@ This file contains expansion macros (X Macros) for OpenXR structures that have a
     _avail(XrSpatialAnchorsQueryCompletionML, XR_TYPE_SPATIAL_ANCHORS_QUERY_COMPLETION_ML) \
     _avail(XrSpatialAnchorsPublishCompletionML, XR_TYPE_SPATIAL_ANCHORS_PUBLISH_COMPLETION_ML) \
     _avail(XrSpatialAnchorsDeleteCompletionML, XR_TYPE_SPATIAL_ANCHORS_DELETE_COMPLETION_ML) \
-    _avail(XrSpatialAnchorsUpdateExpirationCompletionML, XR_TYPE_SPATIAL_ANCHORS_UPDATE_EXPIRATION_COMPLETION_ML) \
-    _avail(XrFutureCompletionEXT, XR_TYPE_FUTURE_COMPLETION_EXT) \
-    _avail(XrWorldMeshStateRequestCompletionML, XR_TYPE_WORLD_MESH_STATE_REQUEST_COMPLETION_ML) \
-    _avail(XrWorldMeshRequestCompletionML, XR_TYPE_WORLD_MESH_REQUEST_COMPLETION_ML) \
-
-
-
-
+    _avail(XrSpatialAnchorsUpdateExpirationCompletionML, XR_TYPE_SPATIAL_ANCHORS_UPDATE_EXPIRATION_COMPLETION_ML)       \
+          _avail(XrSenseDataQueryCompletionBD, XR_TYPE_SENSE_DATA_QUERY_COMPLETION_BD) _avail(XrFutureCompletionEXT, XR_TYPE_FUTURE_COMPLETION_EXT)                                                    \
+              _avail(XrSpatialAnchorCreateCompletionBD, XR_TYPE_SPATIAL_ANCHOR_CREATE_COMPLETION_BD) _avail(XrWorldMeshStateRequestCompletionML, XR_TYPE_WORLD_MESH_STATE_REQUEST_COMPLETION_ML) \
+    _avail(XrWorldMeshRequestCompletionML, XR_TYPE_WORLD_MESH_REQUEST_COMPLETION_ML)     \
+                  _avail(XrCreateSpatialContextCompletionEXT, XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT) _avail(   \
+                      XrCreateSpatialDiscoverySnapshotCompletionEXT,                                                   \
+                      XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_EXT)                                        \
+                      _avail(XrCreateSpatialPersistenceContextCompletionEXT,                                           \
+                             XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT)                                \
+                          _avail(XrPersistSpatialEntityCompletionEXT, XR_TYPE_PERSIST_SPATIAL_ENTITY_COMPLETION_EXT)   \
+                              _avail(XrUnpersistSpatialEntityCompletionEXT,                                            \
+                                     XR_TYPE_UNPERSIST_SPATIAL_ENTITY_COMPLETION_EXT)                                  \
+                                  _avail(XrSenseDataProviderStartCompletionPICO,                                       \
+                                         XR_TYPE_SENSE_DATA_PROVIDER_START_COMPLETION_PICO)                            \
+                                      _avail(XrSenseDataQueryCompletionPICO, XR_TYPE_SENSE_DATA_QUERY_COMPLETION_PICO) \
+                                          _avail(XrSpatialAnchorCreateCompletionPICO,                                  \
+                                                 XR_TYPE_SPATIAL_ANCHOR_CREATE_COMPLETION_PICO)                        \
+                                              _avail(XrSpatialAnchorPersistCompletionPICO,                             \
+                                                     XR_TYPE_SPATIAL_ANCHOR_PERSIST_COMPLETION_PICO)                   \
+                                                  _avail(XrSpatialAnchorUnpersistCompletionPICO,                       \
+                                                         XR_TYPE_SPATIAL_ANCHOR_UNPERSIST_COMPLETION_PICO)             \
+                                                      _avail(XrSpatialAnchorShareCompletionPICO,                       \
+                                                             XR_TYPE_SPATIAL_ANCHOR_SHARE_COMPLETION_PICO)             \
+                                                          _avail(XrSharedSpatialAnchorDownloadCompletionPICO,          \
+                                                                 XR_TYPE_SPATIAL_ANCHOR_DOWNLOAD_COMPLETION_PICO)      \
+                                                              _avail(XrSceneCaptureStartCompletionPICO,                \
+                                                                     XR_TYPE_SCENE_CAPTURE_START_COMPLETION_PICO)
 
 /// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is XrSpatialAnchorsQueryInfoBaseHeaderML
 #define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSpatialAnchorsQueryInfoBaseHeaderML(_avail, _unavail) \
@@ -323,11 +347,23 @@ This file contains expansion macros (X Macros) for OpenXR structures that have a
 
 // Implementation detail of XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrShareSpacesRecipientBaseHeaderMETA()
 #define _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrShareSpacesRecipientBaseHeaderMETA_CORE(_avail, _unavail) \
-    _avail(XrShareSpacesRecipientGroupsMETA, XR_TYPE_SHARE_SPACES_RECIPIENT_GROUPS_META) \
+    _avail(XrShareSpacesRecipientGroupsMETA, XR_TYPE_SHARE_SPACES_RECIPIENT_GROUPS_META)
 
+/// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is
+/// XrSpatialCapabilityConfigurationBaseHeaderEXT
+#define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSpatialCapabilityConfigurationBaseHeaderEXT(_avail, _unavail) \
+  _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSpatialCapabilityConfigurationBaseHeaderEXT_CORE(_avail, _unavail)
 
-
-
+// Implementation detail of XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSpatialCapabilityConfigurationBaseHeaderEXT()
+#define _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSpatialCapabilityConfigurationBaseHeaderEXT_CORE(_avail, _unavail)  \
+  _avail(XrSpatialCapabilityConfigurationPlaneTrackingEXT,                                                            \
+         XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_PLANE_TRACKING_EXT)                                                 \
+      _avail(XrSpatialCapabilityConfigurationQrCodeEXT, XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_QR_CODE_EXT) _avail( \
+          XrSpatialCapabilityConfigurationMicroQrCodeEXT, XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_MICRO_QR_CODE_EXT) \
+          _avail(XrSpatialCapabilityConfigurationArucoMarkerEXT,                                                      \
+                 XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT)                                           \
+              _avail(XrSpatialCapabilityConfigurationAprilTagEXT,                                                     \
+                     XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT)
 
 /// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is XrVirtualBoundaryTriggerBaseHeaderPICO
 #define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrVirtualBoundaryTriggerBaseHeaderPICO(_avail, _unavail) \
@@ -373,11 +409,31 @@ This file contains expansion macros (X Macros) for OpenXR structures that have a
 // Implementation detail of XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSecureMrTensorCreateInfoBaseHeaderPICO()
 #define _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSecureMrTensorCreateInfoBaseHeaderPICO_CORE(_avail, _unavail) \
     _avail(XrSecureMrTensorCreateInfoShapePICO, XR_TYPE_SECURE_MR_TENSOR_CREATE_INFO_SHAPE_PICO) \
-    _avail(XrSecureMrTensorCreateInfoGltfPICO, XR_TYPE_SECURE_MR_TENSOR_CREATE_INFO_GLTF_PICO) \
+    _avail(XrSecureMrTensorCreateInfoGltfPICO, XR_TYPE_SECURE_MR_TENSOR_CREATE_INFO_GLTF_PICO)
 
+/// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is
+/// XrSenseDataFilterBaseHeaderPICO
+#define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataFilterBaseHeaderPICO(_avail, _unavail) \
+  _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataFilterBaseHeaderPICO_CORE(_avail, _unavail)
 
+// Implementation detail of XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataFilterBaseHeaderPICO()
+#define _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataFilterBaseHeaderPICO_CORE(_avail, _unavail) \
+  _avail(XrSenseDataFilterDynamicObjectTypePICO, XR_TYPE_SENSE_DATA_FILTER_DYNAMIC_OBJECT_TYPE_PICO)   \
+      _avail(XrSenseDataFilterUuidPICO, XR_TYPE_SENSE_DATA_FILTER_UUID_PICO)                           \
+          _avail(XrSenseDataFilterSemanticPICO, XR_TYPE_SENSE_DATA_FILTER_SEMANTIC_PICO)
 
+/// Like XR_LIST_ALL_STRUCTURE_TYPES, but only includes types whose parent struct type is
+/// XrSenseDataProviderCreateInfoBaseHeaderPICO
+#define XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataProviderCreateInfoBaseHeaderPICO(_avail, _unavail) \
+  _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataProviderCreateInfoBaseHeaderPICO_CORE(_avail, _unavail)
 
+// Implementation detail of XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataProviderCreateInfoBaseHeaderPICO()
+#define _impl_XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrSenseDataProviderCreateInfoBaseHeaderPICO_CORE(_avail, _unavail)    \
+  _avail(XrSenseDataProviderCreateInfoSpatialAnchorPICO, XR_TYPE_SENSE_DATA_PROVIDER_CREATE_INFO_SPATIAL_ANCHOR_PICO) \
+      _avail(XrSenseDataProviderCreateInfoSceneCapturePICO,                                                           \
+             XR_TYPE_SENSE_DATA_PROVIDER_CREATE_INFO_SCENE_CAPTURE_PICO)                                              \
+          _avail(XrSenseDataProviderCreateInfoSpatialMeshPICO,                                                        \
+                 XR_TYPE_SENSE_DATA_PROVIDER_CREATE_INFO_SPATIAL_MESH_PICO)
 
 #endif
 

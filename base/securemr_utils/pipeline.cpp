@@ -382,12 +382,12 @@ Pipeline& Pipeline::uv2Cam(const std::shared_ptr<PipelineTensor>& uv, const std:
                            const std::shared_ptr<PipelineTensor>& rightImg,
                            const std::shared_ptr<PipelineTensor>& result) {
   // Check for null pointers
-  CHECK_MSG(uv != nullptr, "uv2Cam uvPlaceholder1 is null");
-  CHECK_MSG(timestamp != nullptr, "uv2Cam timestampPlaceholder1 is null");
-  CHECK_MSG(cameraMatrix != nullptr, "uv2Cam cameraMatrixPlaceholder1 is null");
-  CHECK_MSG(leftImg != nullptr, "uv2Cam leftImagePlaceholder is null");
-  CHECK_MSG(rightImg != nullptr, "uv2Cam rightImagePlaceholder is null");
-  CHECK_MSG(result != nullptr, "uv2Cam pointXYZ is null");
+  CHECK_MSG(uv != nullptr, "uv2Cam uvPlaceholder1 is null")
+  CHECK_MSG(timestamp != nullptr, "uv2Cam timestampPlaceholder1 is null")
+  CHECK_MSG(cameraMatrix != nullptr, "uv2Cam cameraMatrixPlaceholder1 is null")
+  CHECK_MSG(leftImg != nullptr, "uv2Cam leftImagePlaceholder is null")
+  CHECK_MSG(rightImg != nullptr, "uv2Cam rightImagePlaceholder is null")
+  CHECK_MSG(result != nullptr, "uv2Cam pointXYZ is null")
 
   XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
   XrSecureMrOperatorUVTo3DPICO uvTo3DOperatorPico{XR_TYPE_SECURE_MR_OPERATOR_UV_TO_3D_PICO, nullptr};
@@ -395,7 +395,7 @@ Pipeline& Pipeline::uv2Cam(const std::shared_ptr<PipelineTensor>& uv, const std:
       XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO, nullptr,
       reinterpret_cast<XrSecureMrOperatorBaseHeaderPICO*>(&uvTo3DOperatorPico),
       XR_SECURE_MR_OPERATOR_TYPE_UV_TO_3D_IN_CAM_SPACE_PICO};
-  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &uvTo3DCreateInfoPico, &opHandle));
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &uvTo3DCreateInfoPico, &opHandle))
 
   CHECK_XRCMD(xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, (XrSecureMrPipelineTensorPICO)*uv, "uv"))
   CHECK_XRCMD(
@@ -584,6 +584,62 @@ Pipeline& Pipeline::sortMatByColumn(const std::shared_ptr<PipelineTensor>& srcMa
     xrSetSecureMrOperatorResultByNamePICO(
         m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result_indicesPerColumn), "indices");
   }
+  return *this;
+}
+
+Pipeline& Pipeline::singularValueDecomposition(const std::shared_ptr<PipelineTensor>& src,
+                                               const std::shared_ptr<PipelineTensor>& result_w,
+                                               const std::shared_ptr<PipelineTensor>& result_u,
+                                               const std::shared_ptr<PipelineTensor>& result_vt) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_SVD_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*src), "src");
+  if (result_w != nullptr) {
+    xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result_w),
+                                          "w");
+  }
+  if (result_u != nullptr) {
+    xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result_u),
+                                          "u");
+  }
+  if (result_vt != nullptr) {
+    xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result_vt),
+                                          "vt");
+  }
+  return *this;
+}
+
+Pipeline& Pipeline::norm(const std::shared_ptr<PipelineTensor>& src,
+                         const std::shared_ptr<PipelineTensor>& result_norm) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_NORM_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*src),
+                                         "operand0");
+  xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result_norm),
+                                        "result0");
+  return *this;
+}
+
+Pipeline& Pipeline::convertHWC_CHW(const std::shared_ptr<PipelineTensor>& src,
+                                   const std::shared_ptr<PipelineTensor>& result) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_SWAP_HWC_CHW_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*src),
+                                         "operand0");
+  xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result),
+                                        "result0");
   return *this;
 }
 

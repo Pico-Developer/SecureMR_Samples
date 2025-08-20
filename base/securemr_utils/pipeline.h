@@ -430,6 +430,58 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
   Pipeline& sortMatByColumn(const std::shared_ptr<PipelineTensor>& srcMat,
                             const std::shared_ptr<PipelineTensor>& result_sortedMat,
                             const std::shared_ptr<PipelineTensor>& result_indicesPerColumn);
+
+  /**
+   *
+   * Perform the singularity value decomposition (SVD) of a matrix
+   *
+   * @param src required, the matrix to be decomposed, must be a multi-dimensional tensor with 2 dimensions, therefore
+   *    usage flag <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required銆?The shapes along the 2 dimensions
+   *    must be same, i.e., must be a square matrix.
+   * @param result_w An optional result, the w result of the decomposition, usage flag
+   *    <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required, and the tensor must have only two dimensions.
+   * @param result_u An optional result, the u result of the decomposition, usage flag
+   *    <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required, and the tensor must have only two dimensions.
+   * @param result_vt An optional result, the vt result of the decomposition, usage flag
+   *    <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required, and the tensor must have only two dimensions.
+   * @return Reference to this pipeline
+   */
+  Pipeline& singularValueDecomposition(const std::shared_ptr<PipelineTensor>& src,
+                                       const std::shared_ptr<PipelineTensor>& result_w,
+                                       const std::shared_ptr<PipelineTensor>& result_u,
+                                       const std::shared_ptr<PipelineTensor>& result_vt);
+
+  /**
+   * Compute the norm of a tensor (by default, L2 norm)
+   *
+   * @param src required, the tensor whose norm will be computed銆?It can be any tensor but the glTF tensor, i.e.,
+   *    the src tensor must not have <code>XR_SECURE_MR_TENSOR_TYPE_GLTF_PICO</code> usage flag.
+   * @param result_norm required, the tensor to store the norm of <code>src</code>. It must be of only 1 channel, and
+   *    contains only one element. Hence, the tensor can only be: <ol>
+   *    <li>A scalar array tensor with usage flag <code>XR_SECURE_MR_TENSOR_TYPE_SCALAR_PICO</code>, of size 1, or</li>
+   *    <li>A scalar array tensor with usage flag <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code>, with
+   *        dimensions = <code>(1, 1)</code></li>
+   *    </ol>
+   * @return Reference to this pipeline
+   */
+  Pipeline& norm(const std::shared_ptr<PipelineTensor>& src, const std::shared_ptr<PipelineTensor>& result_norm);
+
+  /**
+   * Convert the HWC and CHW tensors. An HWC tensor is a 2-dimension tensor, with dimensions = <code>(H, W)</code> and
+   * <code>C</code> channels. A CHW tensor is a 3-dimension tensor, with dimensions = <code>(C, H, W)</code> and
+   * only 1 channel. If the input is an HWC tensor, the method converts it to a CHW one; otherwise, converting the
+   * CHW input to HWC output.
+   *
+   * @param src required, the input tensor to be converted. Must either be a CHW or an HWC tensor, usage flag
+   *    <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required, and number of dimensions must be either 2 or 3.
+   * @param result required, the output of the conversion. If the <code>src</code> is a CHW tensor, the
+   * <code>result</code> must be an HWC tensor. If the <code>src</code> is an HWC tensor, the <code>result</code> must
+   * be a CHW tensor. usage flag <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code> required, and number of dimensions must
+   * be either 2 or 3. The last 2 dimensions of <code>result</code> must be the same as those of <code>src</code>
+   * @return Reference to this pipeline
+   */
+  Pipeline& convertHWC_CHW(const std::shared_ptr<PipelineTensor>& src, const std::shared_ptr<PipelineTensor>& result);
+
   /**
    * Add to the pipeline an operator to conduct matrix inversion
    * Encapsulating operator of type <code>XR_SECURE_MR_OPERATOR_TYPE_INVERSION_PICO</code>

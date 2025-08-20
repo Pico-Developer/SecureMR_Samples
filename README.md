@@ -85,7 +85,7 @@ deploy your own algorithm packages.
 
 #### (A) To run the demo, you will need
 
-1. A PICO 4 Ultra device with the latest system update
+1. A PICO 4 Ultra device with the latest system update (OS version >= 5.14.0U)
 1. Android Studio, with Android NDK installed, suggested NDK version = 25
 1. Gradle and Android Gradle plugin (usually bundled with Android Studio install),
    suggested Gradle version = 8.7, Android Gradle Plugin version = 8.3.2
