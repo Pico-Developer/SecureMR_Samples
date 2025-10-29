@@ -50,6 +50,7 @@ std::vector<std::string> ParseTensorList(const Json& arr);
 std::vector<std::pair<std::string, std::string>> ParseMappedTensorList(const Json& arr);
 bool JsonToFloatArray(const Json& arr, std::array<float, 6>& dest);
 Json LoadJsonFromFile(const std::filesystem::path& filePath);
+std::string FormatOperatorType(const std::string& typeName);
 
 struct PipelineDeserializationResult {
   std::shared_ptr<Pipeline> pipeline;

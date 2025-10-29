@@ -10,7 +10,7 @@
       "channels": 2,
       "data_type": 6,
       "is_placeholder": false,
-      "usage": 6,
+      "usage": 1,
       "flag": 279042,
       "value": [
         1444.0,
@@ -28,7 +28,7 @@
       "channels": 2,
       "data_type": 6,
       "is_placeholder": false,
-      "usage": 6,
+      "usage": 1,
       "flag": 279042,
       "value": [
         0.0,
@@ -171,7 +171,7 @@
   },
   "operators": [
     {
-      "type": "camera_access",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_RECTIFIED_VST_ACCESS_PICO",
       "inputs": [],
       "outputs": [
         "right_rgb",
@@ -181,7 +181,7 @@
       ]
     },
     {
-      "type": "get_affine",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_GET_AFFINE_PICO",
       "inputs": [
         "src_points",
         "dst_points"
@@ -191,7 +191,7 @@
       ]
     },
     {
-      "type": "apply_affine",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_APPLY_AFFINE_PICO",
       "inputs": [
         "affine",
         "left_rgb"
@@ -201,7 +201,7 @@
       ]
     },
     {
-      "type": "cvt_color",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_CONVERT_COLOR_PICO",
       "inputs": [
         "crop_rgb_tensor"
       ],
@@ -211,7 +211,7 @@
       "flag": 6
     },
     {
-      "type": "assignment",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO",
       "inputs": [
         "crop_gray_tensor"
       ],
@@ -220,7 +220,7 @@
       ]
     },
     {
-      "type": "arithmetic",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO",
       "inputs": [
         "crop_float_tensor"
       ],
@@ -230,7 +230,7 @@
       "expression": "{0} / 255.0"
     },
     {
-      "type": "assignment",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO",
       "inputs": [
         "left_rgb"
       ],
@@ -239,7 +239,7 @@
       ]
     },
     {
-      "type": "run_algorithm",
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_RUN_MODEL_INFERENCE_PICO",
       "inputs": [
         {
           "name": "input_1",

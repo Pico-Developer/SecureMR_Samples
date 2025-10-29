@@ -15,6 +15,9 @@
 #include "securemr_utils/serialization.h"
 
 #include <fstream>
+#include <limits>
+#include <numeric>
+#include <optional>
 #include <system_error>
 #include <stdexcept>
 #include <unordered_map>
@@ -197,6 +200,34 @@ Json LoadJsonFromFile(const std::filesystem::path& filePath) {
   return parsed;
 }
 
+std::string FormatOperatorType(const std::string& typeName) {
+  if (typeName.empty()) {
+    return typeName;
+  }
+  static const std::unordered_map<std::string, std::string> kAliases = {
+      {"camera_access", "camera_access"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_RECTIFIED_VST_ACCESS_PICO", "camera_access"},
+      {"get_affine", "get_affine"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_GET_AFFINE_PICO", "get_affine"},
+      {"apply_affine", "apply_affine"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_APPLY_AFFINE_PICO", "apply_affine"},
+      {"cvt_color", "cvt_color"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_CONVERT_COLOR_PICO", "cvt_color"},
+      {"assignment", "assignment"},
+      {"type_convert", "type_convert"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO", "assignment"},
+      {"arithmetic", "arithmetic"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO", "arithmetic"},
+      {"run_algorithm", "run_algorithm"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_RUN_MODEL_INFERENCE_PICO", "run_algorithm"},
+  };
+
+  if (auto it = kAliases.find(typeName); it != kAliases.end()) {
+    return it->second;
+  }
+  return typeName;
+}
+
 bool DeserializePipelineFromJson(const Json& spec,
                                  const std::shared_ptr<FrameworkSession>& session,
                                  PipelineDeserializationResult& outResult,
@@ -222,15 +253,161 @@ bool DeserializePipelineFromJson(const Json& spec,
     const bool isPlaceholder = tensorSpec.value("is_placeholder", false);
     const bool isGltf = tensorSpec.value("is_gltf", false);
     std::shared_ptr<PipelineTensor> tensor;
-    if (isPlaceholder && isGltf) {
-      tensor = PipelineTensor::PipelineGLTFPlaceholder(pipeline);
-    } else {
-      TensorAttribute attr{};
-      if (!JsonToTensorAttribute(tensorSpec, attr)) {
-        outError = Fmt("invalid tensor attribute for %s", tensorName.c_str());
-        return false;
+    TensorAttribute attr{};
+    try {
+      if (isPlaceholder && isGltf) {
+        tensor = PipelineTensor::PipelineGLTFPlaceholder(pipeline);
+      } else {
+        if (!JsonToTensorAttribute(tensorSpec, attr)) {
+          outError = Fmt("invalid tensor attribute for %s", tensorName.c_str());
+          return false;
+        }
+        tensor = std::make_shared<PipelineTensor>(pipeline, attr, isPlaceholder);
+        if (!isPlaceholder && !isGltf) {
+          auto valueIt = tensorSpec.find("value");
+          if (valueIt != tensorSpec.end() && !valueIt->is_null()) {
+            if (!valueIt->is_array()) {
+              outError = Fmt("invalid tensor value for %s: expected array", tensorName.c_str());
+              return false;
+            }
+            if (attr.channels <= 0) {
+              outError = Fmt("invalid tensor attribute for %s: channels must be positive", tensorName.c_str());
+              return false;
+            }
+            size_t elementCount = 1;
+            for (int dim : attr.dimensions) {
+              if (dim <= 0) {
+                outError = Fmt("invalid tensor attribute for %s: non-positive dimension", tensorName.c_str());
+                return false;
+              }
+              elementCount *= static_cast<size_t>(dim);
+            }
+            const size_t expectedValues = elementCount * static_cast<size_t>(attr.channels);
+            if (valueIt->size() != expectedValues) {
+              outError = Fmt("invalid tensor value for %s: expected %zu entries but found %zu", tensorName.c_str(),
+                             expectedValues, valueIt->size());
+              return false;
+            }
+
+            auto ensureInteger = [&](const Json& value, const char* what, int64_t minValue,
+                                     int64_t maxValue) -> std::optional<int64_t> {
+              if (!value.is_number_integer()) {
+                outError = Fmt("invalid tensor value for %s: expected integer for %s", tensorName.c_str(), what);
+                return std::nullopt;
+              }
+              const int64_t numeric = value.get<int64_t>();
+              if (numeric < minValue || numeric > maxValue) {
+                outError = Fmt("invalid tensor value for %s: %s out of range [%lld, %lld]", tensorName.c_str(), what,
+                               static_cast<long long>(minValue), static_cast<long long>(maxValue));
+                return std::nullopt;
+              }
+              return numeric;
+            };
+
+            switch (attr.dataType) {
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO: {
+                std::vector<float> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  const auto& value = (*valueIt)[idx];
+                  if (!value.is_number()) {
+                    outError = Fmt("invalid tensor value for %s: non-numeric entry at index %zu", tensorName.c_str(),
+                                   idx);
+                    return false;
+                  }
+                  buffer[idx] = static_cast<float>(value.get<double>());
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(float));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT64_PICO: {
+                std::vector<double> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  const auto& value = (*valueIt)[idx];
+                  if (!value.is_number()) {
+                    outError = Fmt("invalid tensor value for %s: non-numeric entry at index %zu", tensorName.c_str(),
+                                   idx);
+                    return false;
+                  }
+                  buffer[idx] = value.get<double>();
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(double));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_INT32_PICO: {
+                std::vector<int32_t> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  auto numeric = ensureInteger((*valueIt)[idx], "INT32", std::numeric_limits<int32_t>::min(),
+                                               std::numeric_limits<int32_t>::max());
+                  if (!numeric.has_value()) {
+                    return false;
+                  }
+                  buffer[idx] = static_cast<int32_t>(*numeric);
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(int32_t));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_INT16_PICO: {
+                std::vector<int16_t> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  auto numeric = ensureInteger((*valueIt)[idx], "INT16", std::numeric_limits<int16_t>::min(),
+                                               std::numeric_limits<int16_t>::max());
+                  if (!numeric.has_value()) {
+                    return false;
+                  }
+                  buffer[idx] = static_cast<int16_t>(*numeric);
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(int16_t));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_INT8_PICO: {
+                std::vector<int8_t> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  auto numeric = ensureInteger((*valueIt)[idx], "INT8", std::numeric_limits<int8_t>::min(),
+                                               std::numeric_limits<int8_t>::max());
+                  if (!numeric.has_value()) {
+                    return false;
+                  }
+                  buffer[idx] = static_cast<int8_t>(*numeric);
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(int8_t));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_UINT16_PICO: {
+                std::vector<uint16_t> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  auto numeric = ensureInteger((*valueIt)[idx], "UINT16", 0, std::numeric_limits<uint16_t>::max());
+                  if (!numeric.has_value()) {
+                    return false;
+                  }
+                  buffer[idx] = static_cast<uint16_t>(*numeric);
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(uint16_t));
+                break;
+              }
+              case XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO: {
+                std::vector<uint8_t> buffer(expectedValues);
+                for (size_t idx = 0; idx < expectedValues; ++idx) {
+                  auto numeric = ensureInteger((*valueIt)[idx], "UINT8", 0, std::numeric_limits<uint8_t>::max());
+                  if (!numeric.has_value()) {
+                    return false;
+                  }
+                  buffer[idx] = static_cast<uint8_t>(*numeric);
+                }
+                tensor->setData(reinterpret_cast<int8_t*>(buffer.data()), buffer.size() * sizeof(uint8_t));
+                break;
+              }
+              default:
+                Log::Write(Log::Level::Warning,
+                           Fmt("DeserializePipelineFromJson: unsupported data_type %d for tensor %s initial value",
+                               static_cast<int>(attr.dataType), tensorName.c_str()));
+                break;
+            }
+          }
+        }
       }
-      tensor = std::make_shared<PipelineTensor>(pipeline, attr, isPlaceholder);
+    } catch (const std::exception& e) {
+      outError = Fmt("failed to create tensor '%s': %s", tensorName.c_str(), e.what());
+      return false;
     }
     outResult.tensorMap.emplace(tensorName, std::move(tensor));
   }
@@ -251,7 +428,8 @@ bool DeserializePipelineFromJson(const Json& spec,
 
   try {
     for (const auto& opSpec : *operatorsIt) {
-      const std::string type = opSpec.value("type", "");
+      const std::string rawType = opSpec.value("type", "");
+      const std::string type = FormatOperatorType(rawType);
       const auto inputs = ParseTensorList(opSpec.value("inputs", Json::array()));
       const auto outputs = ParseTensorList(opSpec.value("outputs", Json::array()));
 
@@ -416,7 +594,8 @@ bool DeserializePipelineFromJson(const Json& spec,
           handled = options.customOperatorHandler(opSpec, requireTensor, pipeline, outError);
         }
         if (!handled) {
-          throw std::runtime_error(Fmt("unsupported operator type '%s'", type.c_str()));
+          throw std::runtime_error(Fmt("unsupported operator type '%s'",
+                                       rawType.empty() ? type.c_str() : rawType.c_str()));
         }
       }
     }

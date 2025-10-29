@@ -24,7 +24,7 @@ constexpr std::array<float, 6> kCropDstPoints{0.0F, 0.0F, static_cast<float>(Mni
                                               static_cast<float>(MnistWildApp::kCropHeight)};
 constexpr int kCvColorRgb2Gray = 7;  // Matches cv::COLOR_RGB2GRAY
 
-constexpr char kInferencePipelineJson[] = "mnist_inference_pipeline.json";
+constexpr char kInferencePipelineJson[] = "mnist_pipeline.json";
 constexpr char kTensorPredictedClass[] = "predicted_class";
 constexpr char kTensorPredictedScore[] = "predicted_score";
 constexpr char kTensorCropImage[] = "cropped_image";
@@ -139,26 +139,62 @@ bool MnistWildApp::LoadAsset(const std::string& filePath, std::vector<char>& dat
 }
 
 bool MnistWildApp::DeserializeInferencePipeline(const std::filesystem::path& jsonPath) {
-  json spec = LoadJsonFromFile(jsonPath);
-  PipelineDeserializationResult result;
-  std::string error;
-  if (!DeserializePipelineFromJson(spec, frameworkSession, result, error)) {
+  auto finalizeResult = [&](PipelineDeserializationResult&& result) -> bool {
+    inferencePipeline = std::move(result.pipeline);
+    try {
+      predClassPlaceholder = result.tensorMap.at(kTensorPredictedClass);
+      predScorePlaceholder = result.tensorMap.at(kTensorPredictedScore);
+      cropImagePlaceholder = result.tensorMap.at(kTensorCropImage);
+    } catch (const std::exception& e) {
+      Log::Write(Log::Level::Error,
+                 Fmt("DeserializeInferencePipeline failed: required placeholder missing (%s)", e.what()));
+      return false;
+    }
+    return true;
+  };
+
+  auto tryDeserialize = [&](const json& spec, const std::string& source) -> bool {
+    if (!spec.is_object()) {
+      Log::Write(Log::Level::Error,
+                 Fmt("DeserializeInferencePipeline failed (%s): JSON root is not an object", source.c_str()));
+      return false;
+    }
+    PipelineDeserializationResult result;
+    std::string error;
+    if (!DeserializePipelineFromJson(spec, frameworkSession, result, error)) {
+      Log::Write(Log::Level::Error,
+                 Fmt("DeserializeInferencePipeline failed (%s): %s", source.c_str(),
+                     error.empty() ? "unknown error" : error.c_str()));
+      return false;
+    }
+    return finalizeResult(std::move(result));
+  };
+
+  if (!jsonPath.empty()) {
+    const auto pathStr = jsonPath.string();
+    const json specFromFile = LoadJsonFromFile(jsonPath);
+    if (tryDeserialize(specFromFile, pathStr)) {
+      return true;
+    }
+    Log::Write(Log::Level::Info, Fmt("Falling back to asset pipeline spec after failure reading %s", pathStr.c_str()));
+  }
+
+  std::vector<char> assetBuffer;
+  if (!LoadAsset(kInferencePipelineJson, assetBuffer)) {
     Log::Write(Log::Level::Error,
-               Fmt("DeserializeInferencePipeline failed: %s", error.empty() ? "unknown error" : error.c_str()));
+               Fmt("DeserializeInferencePipeline failed: unable to load asset %s", kInferencePipelineJson));
     return false;
   }
 
-  inferencePipeline = result.pipeline;
   try {
-    predClassPlaceholder = result.tensorMap.at(kTensorPredictedClass);
-    predScorePlaceholder = result.tensorMap.at(kTensorPredictedScore);
-    cropImagePlaceholder = result.tensorMap.at(kTensorCropImage);
+    const json assetSpec = json::parse(assetBuffer.begin(), assetBuffer.end());
+    return tryDeserialize(assetSpec, Fmt("asset:%s", kInferencePipelineJson));
   } catch (const std::exception& e) {
     Log::Write(Log::Level::Error,
-               Fmt("DeserializeInferencePipeline failed: required placeholder missing (%s)", e.what()));
+               Fmt("DeserializeInferencePipeline failed: cannot parse asset %s (%s)", kInferencePipelineJson,
+                   e.what()));
     return false;
   }
-  return true;
 }
 
 void MnistWildApp::CreateFramework() {
