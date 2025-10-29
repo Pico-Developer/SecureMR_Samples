@@ -232,7 +232,7 @@
     {
       "type": "XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO",
       "inputs": [
-        "left_rgb"
+        "crop_rgb_tensor"
       ],
       "outputs": [
         "cropped_image"
