@@ -16,11 +16,6 @@ android {
             cmake {
                 arguments.add("-DANDROID_STL=c++_shared")
                 arguments.add("-DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF")
-                // Toggle JSON-based pipeline via: -PmnistwildUseAssetJson=true
-                val useAssetJson = (project.findProperty("mnistwildUseAssetJson") as String?)?.toBoolean() ?: false
-                if (useAssetJson) {
-                    arguments.add("-DMNISTWILD_USE_ASSET_JSON=ON")
-                }
             }
             ndk {
                 abiFilters.add("arm64-v8a")

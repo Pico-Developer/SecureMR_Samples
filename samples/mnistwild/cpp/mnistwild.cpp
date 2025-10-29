@@ -16,8 +16,6 @@ extern std::string g_internalDataPath;
 
 using json = SecureMR::Json;
 
-// #define LOAD_FROM_JSON_ONLY 
-
 namespace SecureMR {
 namespace {
 constexpr std::array<float, 6> kCropSrcPoints{1444.0F, 1332.0F, 2045.0F, 1332.0F, 2045.0F, 1933.0F};
@@ -30,15 +28,6 @@ constexpr char kInferencePipelineJson[] = "mnist_inference_pipeline.json";
 constexpr char kTensorPredictedClass[] = "predicted_class";
 constexpr char kTensorPredictedScore[] = "predicted_score";
 constexpr char kTensorCropImage[] = "cropped_image";
-constexpr char kTensorRightEye[] = "right_eye_uint8";
-constexpr char kTensorLeftEye[] = "left_eye_uint8";
-constexpr char kTensorTimestamp[] = "timestamp_tensor";
-constexpr char kTensorCameraMatrix[] = "camera_matrix_tensor";
-constexpr char kTensorAffine[] = "affine_tensor";
-constexpr char kTensorCropRgb[] = "crop_rgb_tensor";
-constexpr char kTensorCropGray[] = "crop_gray_tensor";
-constexpr char kTensorCropFloat[] = "crop_float_tensor";
-constexpr char kTensorNormalized[] = "normalized_input_tensor";
 
 std::filesystem::path ResolveWritablePath(const std::string& fileName) {
   if (!g_internalDataPath.empty()) {
@@ -155,7 +144,7 @@ bool MnistWildApp::DeserializeInferencePipeline(const std::filesystem::path& jso
   std::string error;
   if (!DeserializePipelineFromJson(spec, frameworkSession, result, error)) {
     Log::Write(Log::Level::Error,
-              Fmt("DeserializeInferencePipeline failed: %s", error.empty() ? "unknown error" : error.c_str()));
+               Fmt("DeserializeInferencePipeline failed: %s", error.empty() ? "unknown error" : error.c_str()));
     return false;
   }
 
@@ -166,7 +155,7 @@ bool MnistWildApp::DeserializeInferencePipeline(const std::filesystem::path& jso
     cropImagePlaceholder = result.tensorMap.at(kTensorCropImage);
   } catch (const std::exception& e) {
     Log::Write(Log::Level::Error,
-              Fmt("DeserializeInferencePipeline failed: required placeholder missing (%s)", e.what()));
+               Fmt("DeserializeInferencePipeline failed: required placeholder missing (%s)", e.what()));
     return false;
   }
   return true;
@@ -254,193 +243,6 @@ void MnistWildApp::CreateGlobalTensors() {
 void MnistWildApp::CreateInferencePipeline() {
   Log::Write(Log::Level::Info, "Creating inference pipeline ...");
 
-#ifndef LOAD_FROM_JSON_ONLY
-  inferencePipeline = std::make_shared<Pipeline>(frameworkSession);
-
-  predClassPlaceholder = PipelineTensor::PipelinePlaceholderLike(inferencePipeline, predictedClassGlobal);
-  predScorePlaceholder = PipelineTensor::PipelinePlaceholderLike(inferencePipeline, predictedScoreGlobal);
-  cropImagePlaceholder = PipelineTensor::PipelinePlaceholderLike(inferencePipeline, croppedImageGlobal);
-
-  auto rightEyeUint8 = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kImageHeight, kImageWidth},
-                      .channels = 3,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
-  auto leftEyeUint8 = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kImageHeight, kImageWidth},
-                      .channels = 3,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
-  auto timestampTensor =
-      std::make_shared<PipelineTensor>(inferencePipeline, static_cast<TensorAttribute>(TensorAttribute_TimeStamp{}));
-  auto cameraMatrixTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {3, 3},
-                      .channels = 1,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO});
-
-  auto affineTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {2, 3},
-                      .channels = 1,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO});
-
-  auto cropRgbTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kCropHeight, kCropWidth},
-                      .channels = 3,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
-  auto cropGrayTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kCropHeight, kCropWidth},
-                      .channels = 1,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
-  auto cropFloatTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kCropHeight, kCropWidth},
-                      .channels = 1,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO});
-  auto normalizedInputTensor = std::make_shared<PipelineTensor>(
-      inferencePipeline,
-      TensorAttribute{.dimensions = {kCropHeight, kCropWidth},
-                      .channels = 1,
-                      .usage = XR_SECURE_MR_TENSOR_TYPE_MAT_PICO,
-                      .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO});
-
-  (*inferencePipeline)
-      .cameraAccess(rightEyeUint8, leftEyeUint8, timestampTensor, cameraMatrixTensor)
-      .getAffine(kCropSrcPoints, kCropDstPoints, affineTensor)
-      .applyAffine(affineTensor, leftEyeUint8, cropRgbTensor)
-      .assignment(cropRgbTensor, cropImagePlaceholder)
-      .cvtColor(kCvColorRgb2Gray, cropRgbTensor, cropGrayTensor)
-      .typeConvert(cropGrayTensor, cropFloatTensor)
-      .arithmetic("({0} / 255.0)", {cropFloatTensor}, normalizedInputTensor);
-
-  if (!mnistModelBuffer.empty()) {
-    (*inferencePipeline)
-        .runAlgorithm(mnistModelBuffer.data(), mnistModelBuffer.size(), {{"input_1", normalizedInputTensor}}, {},
-                      {{"_538", predScorePlaceholder}, {"_539", predClassPlaceholder}}, {}, "mnist");
-  } else {
-    Log::Write(Log::Level::Error, "Skip model inference: model buffer empty");
-  }
-
-  std::unordered_map<std::string, std::shared_ptr<PipelineTensor>> tensorSpecMap = {
-      {kTensorPredictedClass, predClassPlaceholder},
-      {kTensorPredictedScore, predScorePlaceholder},
-      {kTensorCropImage, cropImagePlaceholder},
-      {kTensorRightEye, rightEyeUint8},
-      {kTensorLeftEye, leftEyeUint8},
-      {kTensorTimestamp, timestampTensor},
-      {kTensorCameraMatrix, cameraMatrixTensor},
-      {kTensorAffine, affineTensor},
-      {kTensorCropRgb, cropRgbTensor},
-      {kTensorCropGray, cropGrayTensor},
-      {kTensorCropFloat, cropFloatTensor},
-      {kTensorNormalized, normalizedInputTensor},
-  };
-  const std::unordered_set<std::string> placeholderNames = {kTensorPredictedClass, kTensorPredictedScore,
-                                                            kTensorCropImage};
-
-  json spec;
-  spec["metadata"]["version"] = 1;
-  json tensorsJson = json::object();
-  for (const auto& entry : tensorSpecMap) {
-    json tensorJson =
-        TensorAttributeVariantToJson(entry.second ? entry.second->getAttribute() : std::variant<std::monostate, TensorAttribute>{});
-    tensorJson["is_placeholder"] = placeholderNames.count(entry.first) > 0;
-    tensorsJson[entry.first] = tensorJson;
-  }
-  spec["tensors"] = tensorsJson;
-
-  // Mark pipeline-level inputs/outputs in the JSON spec
-  SetInputs(spec, {});
-  SetOutputs(spec, {kTensorPredictedClass, kTensorPredictedScore, kTensorCropImage});
-
-  json operators = json::array();
-
-  json cameraOp;
-  cameraOp["type"] = "camera_access";
-  cameraOp["inputs"] = json::array();
-  cameraOp["outputs"] = TensorListToJson(
-      {kTensorRightEye, kTensorLeftEye, kTensorTimestamp, kTensorCameraMatrix});
-  operators.push_back(cameraOp);
-
-  json getAffineOp;
-  getAffineOp["type"] = "get_affine";
-  json srcPoints = json::array();
-  for (float v : kCropSrcPoints) {
-    srcPoints.push_back(v);
-  }
-  json dstPoints = json::array();
-  for (float v : kCropDstPoints) {
-    dstPoints.push_back(v);
-  }
-  getAffineOp["src_points"] = srcPoints;
-  getAffineOp["dst_points"] = dstPoints;
-  getAffineOp["inputs"] = json::array();
-  getAffineOp["outputs"] = TensorListToJson({kTensorAffine});
-  operators.push_back(getAffineOp);
-
-  json applyAffineOp;
-  applyAffineOp["type"] = "apply_affine";
-  applyAffineOp["inputs"] = TensorListToJson({kTensorAffine, kTensorLeftEye});
-  applyAffineOp["outputs"] = TensorListToJson({kTensorCropRgb});
-  operators.push_back(applyAffineOp);
-
-  json assignOp;
-  assignOp["type"] = "assignment";
-  assignOp["inputs"] = TensorListToJson({kTensorCropRgb});
-  assignOp["outputs"] = TensorListToJson({kTensorCropImage});
-  operators.push_back(assignOp);
-
-  json cvtColorOp;
-  cvtColorOp["type"] = "cvt_color";
-  cvtColorOp["flag"] = kCvColorRgb2Gray;
-  cvtColorOp["inputs"] = TensorListToJson({kTensorCropRgb});
-  cvtColorOp["outputs"] = TensorListToJson({kTensorCropGray});
-  operators.push_back(cvtColorOp);
-
-  json typeConvertOp;
-  typeConvertOp["type"] = "type_convert";
-  typeConvertOp["inputs"] = TensorListToJson({kTensorCropGray});
-  typeConvertOp["outputs"] = TensorListToJson({kTensorCropFloat});
-  operators.push_back(typeConvertOp);
-
-  json arithmeticOp;
-  arithmeticOp["type"] = "arithmetic";
-  arithmeticOp["expression"] = "({0} / 255.0)";
-  arithmeticOp["inputs"] = TensorListToJson({kTensorCropFloat});
-  arithmeticOp["outputs"] = TensorListToJson({kTensorNormalized});
-  operators.push_back(arithmeticOp);
-
-  if (!mnistModelBuffer.empty()) {
-    json runAlg;
-    runAlg["type"] = "run_algorithm";
-    runAlg["model_name"] = "mnist";
-    runAlg["model_asset"] = "mnist.serialized.bin";
-    runAlg["inputs"] = MappedTensorListToJson({{"input_1", kTensorNormalized}});
-    runAlg["outputs"] =
-        MappedTensorListToJson({{"_538", kTensorPredictedScore}, {"_539", kTensorPredictedClass}});
-    operators.push_back(runAlg);
-  }
-
-  spec["operators"] = operators;
-
-  const std::filesystem::path jsonPath = ResolveWritablePath(kInferencePipelineJson);
-  if (WriteJsonToFile(jsonPath, spec)) {
-    if (DeserializeInferencePipeline(jsonPath)) {
-      Log::Write(Log::Level::Info,
-                 Fmt("Inference pipeline restored from %s", jsonPath.string().c_str()));
-    }
-  }
-#else
   Log::Write(Log::Level::Info, "LOAD_FROM_JSON_ONLY");
 
   const std::filesystem::path jsonPath = ResolveWritablePath(kInferencePipelineJson);
@@ -449,7 +251,6 @@ void MnistWildApp::CreateInferencePipeline() {
     Log::Write(Log::Level::Error,
               Fmt("Failed to load inference pipeline from %s", pathStr.c_str()));
   }
-#endif  // LOAD_FROM_JSON_ONLY
 
   Log::Write(Log::Level::Info, "Inference pipeline ready.");
 }

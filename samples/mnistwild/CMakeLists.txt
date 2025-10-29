@@ -1,19 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(mnistwild)
 
-option(MNISTWILD_USE_ASSET_JSON "Build mnistwild with JSON-loaded pipeline from assets" OFF)
-
-if(MNISTWILD_USE_ASSET_JSON)
-    message(STATUS "mnistwild: using asset JSON pipeline (mnistwild_load.cpp)")
-    set(SAMPLE_SRCS
-            ${CMAKE_CURRENT_LIST_DIR}/cpp/mnistwild_load.cpp
-    )
-else()
-    message(STATUS "mnistwild: using code-defined pipeline (mnistwild.cpp)")
-    set(SAMPLE_SRCS
-            ${CMAKE_CURRENT_LIST_DIR}/cpp/mnistwild.cpp
-    )
-endif()
+set(SAMPLE_SRCS ${CMAKE_CURRENT_LIST_DIR}/cpp/mnistwild.cpp)
 set(SAMPLE_DIR ${CMAKE_CURRENT_LIST_DIR}/cpp)
 set(USE_SECURE_MR_UTILS ON)
 
