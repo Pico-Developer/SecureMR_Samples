@@ -2,10 +2,10 @@
 
 This sample builds a SecureMR application that recognizes hand-written digits that appear in the
 VST camera feed. Unlike the other samples, both the preprocessing and inference pipelines are
-described entirely in JSON (`mnist_pipeline.json`) and deserialized at runtime to create the
+described entirely in JSON ([mnist_pipeline.json](../../assets/mnistwild/mnist_pipeline.json)) and deserialized at runtime to create the
 SecureMR pipeline graph.
 
-The experience renders a virtual TV in front of the user. The cropped digit, its predicted class,
+The experience renders three virtual TV in front of the user. The cropped digit, its predicted class,
 and the confidence score are displayed on the screen in real time.
 
 ![](../../assets/mnistwild/mnist_app.png)
