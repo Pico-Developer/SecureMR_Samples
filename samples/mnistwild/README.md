@@ -51,6 +51,17 @@ All assets are packaged under `assets/mnistwild` and loaded through Android's `A
    Two worker threads call `RunInferencePipeline` (~20 Hz) and `RunRenderPipeline` (~25 Hz) once all
    pipelines finish initializing.
 
+### How to Build and Run
+
+1. **Build and install**  
+   Connect your PICO 4 Ultra device and run:
+   ```bash
+   ./gradlew :samples:mnistwild:installDebug
+   ```
+
+2. **Run the app**  
+   Launch the "MnistWild" app from the PICO launcher. The app will request permissions for the VST camera; grant them to start the recognition pipeline.
+
 ### Customizing the JSON Pipeline
 
 - Adjust `src_points` in the JSON if the digit capture area shifts in the physical world.

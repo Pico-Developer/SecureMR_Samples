@@ -1,6 +1,11 @@
 # Sample: Model Inspect Tool
 
-This sample runs a single SecureMR model inference to validate a serialized model on device. The app does not render any content; it loads the model and inputs from paths provided through system properties and dumps the outputs to the app's internal storage for inspection.
+This sample runs a single SecureMR model inference to validate a serialized model on device. It is primarily used as a diagnostic tool for checking model compatibility and performance on PICO 4 Ultra (OS 5.15+).
+
+## Prerequisites
+
+- PICO 4 Ultra with OS version >= 5.15.0
+- Serialized SecureMR model files (.bin and .json)
 
 ## Usage
 
