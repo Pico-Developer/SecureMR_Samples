@@ -6,5 +6,4 @@ set(SAMPLE_SRCS
 )
 set(SAMPLE_DIR ${CMAKE_CURRENT_LIST_DIR}/cpp)
 set(USE_SECURE_MR_UTILS ON)
-
 include(../../base/base.cmake)

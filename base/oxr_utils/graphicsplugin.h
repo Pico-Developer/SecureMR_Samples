@@ -4,6 +4,10 @@
 
 #pragma once
 
+namespace Geometry {
+struct Vertex;
+}
+
 struct Cube {
   XrPosef Pose;
   XrVector3f Scale;
@@ -34,6 +38,18 @@ struct IGraphicsPlugin {
   virtual void RenderView(const XrCompositionLayerProjectionView& layerView,
                           const XrSwapchainImageBaseHeader* swapchainImage, int64_t swapchainFormat,
                           const std::vector<Cube>& cubes) = 0;
+
+  // Optional: render a user-provided mesh (Position+Color vertices) onto the same view's swapchain image.
+  // Default: no-op (implement only for backends that support it).
+  virtual void RenderUserMesh(const XrCompositionLayerProjectionView& /*layerView*/,
+                              const XrSwapchainImageBaseHeader* /*swapchainImage*/, int64_t /*swapchainFormat*/,
+                              const struct Geometry::Vertex* /*vertices*/, uint32_t /*vcount*/,
+                              const uint16_t* /*indices*/, uint32_t /*icount*/, const XrPosef& /*worldPose*/) {}
+
+  // Upload an RGBA8 image (width x height) to a vector of swapchain images.
+  // Implementations may assume images belong to this graphics API.
+  virtual void UploadRgbaToSwapchainImages(const std::vector<XrSwapchainImageBaseHeader*>& images, int width,
+                                           int height, const std::vector<uint8_t>& rgba) {}
 
   // Get recommended number of sub-data element samples in view (recommendedSwapchainSampleCount)
   // if supported by the graphics plugin. A supported value otherwise.

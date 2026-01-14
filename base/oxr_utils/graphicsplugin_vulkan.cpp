@@ -29,6 +29,8 @@
 #define SPV_PREFIX
 #define SPV_SUFFIX
 #endif
+VkDevice g_device;
+VkPhysicalDevice g_pdevice;
 
 namespace {
 
@@ -247,6 +249,7 @@ struct CmdBuffer {
     CHECK_CBSTATE(CmdBufferState::Undefined);
 
     m_vkDevice = device;
+    g_device = m_vkDevice;
 
     // Create a command pool to allocate our command buffer from
     VkCommandPoolCreateInfo cmdPoolInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
@@ -450,6 +453,28 @@ struct VertexBufferBase {
   VertexBufferBase& operator=(const VertexBufferBase&) = delete;
   VertexBufferBase(VertexBufferBase&&) = delete;
   VertexBufferBase& operator=(VertexBufferBase&&) = delete;
+  void Reset() {
+    if (m_vkDevice != nullptr) {
+      if (idxBuf != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_vkDevice, idxBuf, nullptr);
+      }
+      if (idxMem != VK_NULL_HANDLE) {
+        vkFreeMemory(m_vkDevice, idxMem, nullptr);
+      }
+      if (vtxBuf != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_vkDevice, vtxBuf, nullptr);
+      }
+      if (vtxMem != VK_NULL_HANDLE) {
+        vkFreeMemory(m_vkDevice, vtxMem, nullptr);
+      }
+    }
+    idxBuf = VK_NULL_HANDLE;
+    idxMem = VK_NULL_HANDLE;
+    vtxBuf = VK_NULL_HANDLE;
+    vtxMem = VK_NULL_HANDLE;
+    bindDesc = {};
+    count = {0, 0};
+  }
   void Init(VkDevice device, const MemoryAllocator* memAllocator,
             const std::vector<VkVertexInputAttributeDescription>& attr) {
     m_vkDevice = device;
@@ -522,7 +547,9 @@ struct RenderPass {
 
   RenderPass() = default;
 
-  bool Create(const VulkanDebugObjectNamer& namer, VkDevice device, VkFormat aColorFmt, VkFormat aDepthFmt) {
+  bool Create(const VulkanDebugObjectNamer& namer, VkDevice device, VkFormat aColorFmt, VkFormat aDepthFmt,
+              VkAttachmentLoadOp colorLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+              VkAttachmentLoadOp depthLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR) {
     m_vkDevice = device;
     colorFmt = aColorFmt;
     depthFmt = aDepthFmt;
@@ -546,7 +573,7 @@ struct RenderPass {
 
       at[colorRef.attachment].format = colorFmt;
       at[colorRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-      at[colorRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      at[colorRef.attachment].loadOp = colorLoadOp;
       at[colorRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
       at[colorRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
       at[colorRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -562,7 +589,7 @@ struct RenderPass {
 
       at[depthRef.attachment].format = depthFmt;
       at[depthRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-      at[depthRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      at[depthRef.attachment].loadOp = depthLoadOp;
       at[depthRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
       at[depthRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
       at[depthRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -603,14 +630,19 @@ struct RenderTarget {
   VkImage depthImage{VK_NULL_HANDLE};
   VkImageView colorView{VK_NULL_HANDLE};
   VkImageView depthView{VK_NULL_HANDLE};
-  VkFramebuffer fb{VK_NULL_HANDLE};
+  // Separate framebuffers for clear-pass and load-pass render passes
+  VkFramebuffer fbClear{VK_NULL_HANDLE};
+  VkFramebuffer fbLoad{VK_NULL_HANDLE};
 
   RenderTarget() = default;
 
   ~RenderTarget() {
     if (m_vkDevice != nullptr) {
-      if (fb != VK_NULL_HANDLE) {
-        vkDestroyFramebuffer(m_vkDevice, fb, nullptr);
+      if (fbClear != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(m_vkDevice, fbClear, nullptr);
+      }
+      if (fbLoad != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(m_vkDevice, fbLoad, nullptr);
       }
       if (colorView != VK_NULL_HANDLE) {
         vkDestroyImageView(m_vkDevice, colorView, nullptr);
@@ -625,7 +657,8 @@ struct RenderTarget {
     depthImage = VK_NULL_HANDLE;
     colorView = VK_NULL_HANDLE;
     depthView = VK_NULL_HANDLE;
-    fb = VK_NULL_HANDLE;
+    fbClear = VK_NULL_HANDLE;
+    fbLoad = VK_NULL_HANDLE;
     m_vkDevice = nullptr;
   }
 
@@ -635,7 +668,8 @@ struct RenderTarget {
     swap(depthImage, other.depthImage);
     swap(colorView, other.colorView);
     swap(depthView, other.depthView);
-    swap(fb, other.fb);
+    swap(fbClear, other.fbClear);
+    swap(fbLoad, other.fbLoad);
     swap(m_vkDevice, other.m_vkDevice);
   }
   RenderTarget& operator=(RenderTarget&& other) noexcept {
@@ -649,7 +683,8 @@ struct RenderTarget {
     swap(depthImage, other.depthImage);
     swap(colorView, other.colorView);
     swap(depthView, other.depthView);
-    swap(fb, other.fb);
+    swap(fbClear, other.fbClear);
+    swap(fbLoad, other.fbLoad);
     swap(m_vkDevice, other.m_vkDevice);
     return *this;
   }
@@ -704,14 +739,24 @@ struct RenderTarget {
     }
 
     VkFramebufferCreateInfo fbInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    fbInfo.renderPass = renderPass.pass;
     fbInfo.attachmentCount = attachmentCount;
     fbInfo.pAttachments = attachments.data();
     fbInfo.width = size.width;
     fbInfo.height = size.height;
     fbInfo.layers = 1;
-    CHECK_VKCMD(vkCreateFramebuffer(m_vkDevice, &fbInfo, nullptr, &fb));
-    CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FRAMEBUFFER, (uint64_t)fb, "hello_xr framebuffer"));
+    // Create framebuffer for the provided renderPass
+    fbInfo.renderPass = renderPass.pass;
+    VkFramebuffer* targetFb = nullptr;
+    // Heuristic: if the provided renderPass was created with LOAD ops, put it in fbLoad; else fbClear
+    // We cannot query loadOp easily here; choose fbClear if unset.
+    if (fbClear == VK_NULL_HANDLE) targetFb = &fbClear;
+    if (renderPass.pass != VK_NULL_HANDLE) {
+      // If fbClear already used and this is a different pass, use fbLoad
+      if (fbClear != VK_NULL_HANDLE) targetFb = &fbLoad;
+    }
+    if (targetFb == nullptr) targetFb = &fbClear;
+    CHECK_VKCMD(vkCreateFramebuffer(m_vkDevice, &fbInfo, nullptr, targetFb));
+    CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FRAMEBUFFER, (uint64_t)*targetFb, "hello_xr framebuffer"));
   }
 
   RenderTarget(const RenderTarget&) = delete;
@@ -766,6 +811,7 @@ struct Pipeline {
   VkPipeline pipe{VK_NULL_HANDLE};
   VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
   std::vector<VkDynamicState> dynamicStateEnables;
+  VkCullModeFlags cullMode{VK_CULL_MODE_BACK_BIT};
 
   Pipeline() = default;
 
@@ -791,7 +837,7 @@ struct Pipeline {
 
     VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rs.polygonMode = VK_POLYGON_MODE_FILL;
-    rs.cullMode = VK_CULL_MODE_BACK_BIT;
+    rs.cullMode = cullMode;
     rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rs.depthClampEnable = VK_FALSE;
     rs.rasterizerDiscardEnable = VK_FALSE;
@@ -993,8 +1039,10 @@ struct SwapchainImageContext {
   std::vector<RenderTarget> renderTarget;
   VkExtent2D size{};
   DepthBuffer depthBuffer{};
-  RenderPass rp{};
+  RenderPass rp{};      // clear pass
+  RenderPass rpLoad{};  // load pass for user mesh overlay
   Pipeline pipe{};
+  Pipeline pipeLoad{};
   XrStructureType swapchainImageType;
 
   SwapchainImageContext() = default;
@@ -1013,8 +1061,13 @@ struct SwapchainImageContext {
     // XXX handle swapchainCreateInfo.sampleCount
 
     depthBuffer.Create(namer, m_vkDevice, memAllocator, depthFormat, swapchainCreateInfo);
-    rp.Create(namer, m_vkDevice, colorFormat, depthFormat);
+    rp.Create(namer, m_vkDevice, colorFormat, depthFormat, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_LOAD_OP_CLEAR);
+    pipe.cullMode = VK_CULL_MODE_BACK_BIT;
     pipe.Create(m_vkDevice, size, layout, rp, sp, vb);
+    // load pass/pipeline for user mesh overlay (no clear)
+    rpLoad.Create(namer, m_vkDevice, colorFormat, depthFormat, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_LOAD_OP_LOAD);
+    pipeLoad.cullMode = VK_CULL_MODE_NONE;  // user mesh: avoid facing issues across faces
+    pipeLoad.Create(m_vkDevice, size, layout, rpLoad, sp, vb);
 
     swapchainImages.resize(capacity);
     renderTarget.resize(capacity);
@@ -1033,11 +1086,32 @@ struct SwapchainImageContext {
   }
 
   void BindRenderTarget(uint32_t index, VkRenderPassBeginInfo* renderPassBeginInfo) {
-    if (renderTarget[index].fb == VK_NULL_HANDLE) {
+    if (renderTarget[index].fbClear == VK_NULL_HANDLE) {
       renderTarget[index].Create(m_namer, m_vkDevice, swapchainImages[index].image, depthBuffer.depthImage, size, rp);
     }
     renderPassBeginInfo->renderPass = rp.pass;
-    renderPassBeginInfo->framebuffer = renderTarget[index].fb;
+    renderPassBeginInfo->framebuffer = renderTarget[index].fbClear;
+    renderPassBeginInfo->renderArea.offset = {0, 0};
+    renderPassBeginInfo->renderArea.extent = size;
+  }
+
+  void BindRenderTargetWithPass(uint32_t index, VkRenderPassBeginInfo* renderPassBeginInfo, RenderPass& useRp) {
+    // Create the matching framebuffer for the requested render pass
+    if (useRp.pass == rp.pass) {
+      if (renderTarget[index].fbClear == VK_NULL_HANDLE) {
+        renderTarget[index].Create(m_namer, m_vkDevice, swapchainImages[index].image, depthBuffer.depthImage, size,
+                                   rp);
+      }
+      renderPassBeginInfo->renderPass = rp.pass;
+      renderPassBeginInfo->framebuffer = renderTarget[index].fbClear;
+    } else {
+      if (renderTarget[index].fbLoad == VK_NULL_HANDLE) {
+        renderTarget[index].Create(m_namer, m_vkDevice, swapchainImages[index].image, depthBuffer.depthImage, size,
+                                   useRp);
+      }
+      renderPassBeginInfo->renderPass = useRp.pass;
+      renderPassBeginInfo->framebuffer = renderTarget[index].fbLoad;
+    }
     renderPassBeginInfo->renderArea.offset = {0, 0};
     renderPassBeginInfo->renderArea.extent = size;
   }
@@ -1431,7 +1505,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     deviceGetInfo.systemId = systemId;
     deviceGetInfo.vulkanInstance = m_vkInstance;
     CHECK_XRCMD(GetVulkanGraphicsDevice2KHR(instance, &deviceGetInfo, &m_vkPhysicalDevice));
-
+    g_pdevice = m_vkPhysicalDevice;
     VkDeviceQueueCreateInfo queueInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
     float queuePriorities = 0;
     queueInfo.queueCount = 1;
@@ -1550,6 +1624,13 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     m_drawBuffer.Create(numCubeIdicies, numCubeVerticies);
     m_drawBuffer.UpdateIndices(Geometry::c_cubeIndices, numCubeIdicies, 0);
     m_drawBuffer.UpdateVertices(Geometry::c_cubeVertices, numCubeVerticies, 0);
+
+    // Create a reasonably large dynamic buffer for user mesh overlay (no reallocation in typical cases)
+    m_userBuffer.Init(m_vkDevice, &m_memAllocator,
+                      {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
+                       {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}});
+    // Capacity: up to 4096 verts / 8192 indices (uint16)
+    m_userBuffer.Create(/*idxCount*/ 8192, /*vtxCount*/ 4096);
 
 #if defined(USE_MIRROR_WINDOW)
     m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
@@ -1683,8 +1764,168 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
   uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView&) override { return VK_SAMPLE_COUNT_1_BIT; }
 
+  void RenderUserMesh(const XrCompositionLayerProjectionView& layerView,
+                      const XrSwapchainImageBaseHeader* swapchainImage, int64_t /*swapchainFormat*/,
+                      const Geometry::Vertex* vertices, uint32_t vcount, const uint16_t* indices, uint32_t icount,
+                      const XrPosef& worldPose) override {
+    if (vcount == 0 || icount == 0) return;
+
+    auto swapchainContext = m_swapchainImageContextMap[swapchainImage];
+    uint32_t imageIndex = swapchainContext->ImageIndex(swapchainImage);
+
+    // Ensure capacity (recreate dynamic buffer if needed, with headroom)
+    auto nextPow2 = [](uint32_t x) {
+      if (x == 0) return 1u;
+      --x; x |= x >> 1; x |= x >> 2; x |= x >> 4; x |= x >> 8; x |= x >> 16; return x + 1;
+    };
+    if (vcount > m_userBuffer.count.vtx || icount > m_userBuffer.count.idx) {
+      uint32_t newV = std::min(1u << 16, nextPow2(std::max(vcount, m_userBuffer.count.vtx * 2 + 1)));
+      uint32_t newI = std::min(1u << 16, nextPow2(std::max(icount, m_userBuffer.count.idx * 2 + 1)));
+      m_userBuffer.Reset();
+      m_userBuffer.Init(m_vkDevice, &m_memAllocator,
+                        {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
+                         {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}});
+      m_userBuffer.Create(newI, newV);
+      Log::Write(Log::Level::Info,
+                 Fmt("Vulkan: resized user mesh buffer to vtx=%u idx=%u", m_userBuffer.count.vtx, m_userBuffer.count.idx));
+    }
+
+    // Flush previous work and begin a new command buffer
+    m_cmdBuffer.Wait();
+    m_cmdBuffer.Reset();
+    m_cmdBuffer.Begin();
+
+    // Ensure depth is in the right layout
+    swapchainContext->depthBuffer.TransitionLayout(&m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    // Bind load-pass render target (no clear)
+    VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    // No clear values (load existing)
+    renderPassBeginInfo.clearValueCount = 0;
+    renderPassBeginInfo.pClearValues = nullptr;
+    swapchainContext->BindRenderTargetWithPass(imageIndex, &renderPassBeginInfo, swapchainContext->rpLoad);
+    vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, swapchainContext->pipeLoad.pipe);
+
+    // Upload data to user buffer
+    m_userBuffer.UpdateVertices(vertices, vcount, 0);
+    m_userBuffer.UpdateIndices(indices, icount, 0);
+
+    // Bind index and vertex buffers
+    vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_userBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_userBuffer.vtxBuf, &offset);
+
+    // Compute VP and model
+    const auto& pose = layerView.pose;
+    XrMatrix4x4f proj;
+    XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
+    XrMatrix4x4f toView;
+    XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
+    XrMatrix4x4f view;
+    XrMatrix4x4f_InvertRigidBody(&view, &toView);
+    XrMatrix4x4f vp;
+    XrMatrix4x4f_Multiply(&vp, &proj, &view);
+
+    XrVector3f unitScale{1.0f, 1.0f, 1.0f};
+    XrMatrix4x4f model;
+    XrMatrix4x4f_CreateTranslationRotationScale(&model, &worldPose.position, &worldPose.orientation, &unitScale);
+    XrMatrix4x4f mvp;
+    XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+    vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m),
+                       &mvp.m[0]);
+
+    vkCmdDrawIndexed(m_cmdBuffer.buf, icount, 1, 0, 0, 0);
+
+    vkCmdEndRenderPass(m_cmdBuffer.buf);
+    m_cmdBuffer.End();
+    m_cmdBuffer.Exec(m_vkQueue);
+  }
+
   void UpdateOptions(const std::shared_ptr<Options>& options) override {
     m_clearColor = options->GetBackgroundClearColor();
+  }
+
+  void UploadRgbaToSwapchainImages(const std::vector<XrSwapchainImageBaseHeader*>& images, int width, int height,
+                                   const std::vector<uint8_t>& rgba) override {
+    // Create staging buffer
+    VkBuffer stagingBuf = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
+    VkBufferCreateInfo bufInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufInfo.size = static_cast<VkDeviceSize>(rgba.size());
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    CHECK_VKCMD(vkCreateBuffer(m_vkDevice, &bufInfo, nullptr, &stagingBuf));
+    VkMemoryRequirements memReqs{};
+    vkGetBufferMemoryRequirements(m_vkDevice, stagingBuf, &memReqs);
+    m_memAllocator.Allocate(memReqs, &stagingMem,
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    CHECK_VKCMD(vkBindBufferMemory(m_vkDevice, stagingBuf, stagingMem, 0));
+    // Upload data
+    void* mapped = nullptr;
+    CHECK_VKCMD(vkMapMemory(m_vkDevice, stagingMem, 0, bufInfo.size, 0, &mapped));
+    std::memcpy(mapped, rgba.data(), rgba.size());
+    vkUnmapMemory(m_vkDevice, stagingMem);
+
+    // Record copy for each image
+    m_cmdBuffer.Wait();
+    m_cmdBuffer.Reset();
+    m_cmdBuffer.Begin();
+
+    for (auto* base : images) {
+      const auto* vkImgHdr = reinterpret_cast<const XrSwapchainImageVulkan2KHR*>(base);
+      VkImage image = vkImgHdr->image;
+
+      VkImageSubresourceRange range{};
+      range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      range.baseMipLevel = 0;
+      range.levelCount = 1;
+      range.baseArrayLayer = 0;
+      range.layerCount = 1;
+
+      VkImageMemoryBarrier barrierToDst{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+      barrierToDst.srcAccessMask = 0;
+      barrierToDst.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      barrierToDst.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      barrierToDst.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      barrierToDst.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      barrierToDst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      barrierToDst.image = image;
+      barrierToDst.subresourceRange = range;
+      vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                           nullptr, 0, nullptr, 1, &barrierToDst);
+
+      VkBufferImageCopy region{};
+      region.bufferOffset = 0;
+      region.bufferRowLength = 0;   // tightly packed
+      region.bufferImageHeight = 0; // tightly packed
+      region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      region.imageSubresource.mipLevel = 0;
+      region.imageSubresource.baseArrayLayer = 0;
+      region.imageSubresource.layerCount = 1;
+      region.imageOffset = {0, 0, 0};
+      region.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+      vkCmdCopyBufferToImage(m_cmdBuffer.buf, stagingBuf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+      VkImageMemoryBarrier barrierToReadable{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+      barrierToReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      barrierToReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      barrierToReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      barrierToReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      barrierToReadable.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      barrierToReadable.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      barrierToReadable.image = image;
+      barrierToReadable.subresourceRange = range;
+      vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                           nullptr, 0, nullptr, 1, &barrierToReadable);
+    }
+
+    m_cmdBuffer.End();
+    m_cmdBuffer.Exec(m_vkQueue);
+    m_cmdBuffer.Wait();
+
+    vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
+    vkFreeMemory(m_vkDevice, stagingMem, nullptr);
   }
 
  protected:
@@ -1705,6 +1946,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
   CmdBuffer m_cmdBuffer{};
   PipelineLayout m_pipelineLayout{};
   VertexBuffer<Geometry::Vertex> m_drawBuffer{};
+  VertexBuffer<Geometry::Vertex> m_userBuffer{};
   std::array<float, 4> m_clearColor;
 
 #if defined(USE_MIRROR_WINDOW)

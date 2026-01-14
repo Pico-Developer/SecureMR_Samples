@@ -10,6 +10,7 @@
 int add(int a, int b);
 
 struct IOpenXrProgram {
+  static android_app* gapp;
   virtual ~IOpenXrProgram() = default;
 
   // Create an Instance and other basic instance-level initialization.
@@ -47,11 +48,17 @@ struct IOpenXrProgram {
 
   virtual void RunSecureMr() = 0;
 
+  virtual void TickSecureMr() = 0;
+
   virtual void DestroySecureMr() = 0;
 
   // Get preferred blend mode based on the view configuration specified in the Options
   virtual XrEnvironmentBlendMode GetPreferredBlendMode() const = 0;
 };
+
+struct Options;
+class IPlatformPlugin;
+class IGraphicsPlugin;
 
 struct Swapchain {
   XrSwapchain handle;

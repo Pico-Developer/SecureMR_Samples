@@ -16,6 +16,10 @@
 #define SECURE_MR_DEMOS_SECUREMR_BASE_H
 
 #include "pch.h"
+
+namespace Geometry {
+struct Vertex;
+}
 #include <fstream>
 #include <random>
 #include "logger.h"
@@ -30,6 +34,10 @@ namespace SecureMR {
 class ISecureMR {
  public:
   virtual void UpdateHandPose(const XrVector3f* leftHandDelta, const XrVector3f* rightHandDelta) {}
+  // Optional: per-frame head pose for applications that anchor content in front of the user.
+  virtual void UpdateHeadPose(const XrPosef& /*pose*/) {}
+  // Optional: head motion hint between frames; deltas are per-frame magnitudes in meters and radians
+  virtual void UpdateHeadMotion(float /*linearDeltaM*/, float /*angularDeltaRad*/) {}
 
   virtual ~ISecureMR() = default;
 
@@ -79,6 +87,44 @@ class ISecureMR {
    * in this method's implementation, which submits the desired pipelines timely.
    */
   virtual void RunPipelines() = 0;
+  /**
+   * This method will be called every frame, after the OpenXR instance and session are ready.
+   *
+   * The method's implementation is expected to complete the following tasks:
+   * <ol>
+   * <li>A Secure MR Framework handle which holds the MR resources and serves as a camera provider will be created
+   * and</li> <li>The camera resolution shall be determined</li>
+   * </ol>
+   *
+   * The calling of this method starts the lifecycle of a camera client.
+   */
+  virtual void RequestPermission(struct android_app* app) {}
+  
+  // Optional: inform app of overlay swapchain size so it can align camera/readback sizes.
+  virtual void SetOverlaySize(int /*width*/, int /*height*/) {}
+
+  /**
+   * This method is called once on every iteration of the OpenXR app's main loop.
+   *
+   * Implementations should perform only lightweight, non-blocking per-frame work here, such as:
+   * <ul>
+   * <li>Polling results produced asynchronously by pipelines started in <code>RunPipelines</code> and
+   *     updating any shared state used by rendering.</li>
+   * <li>Uploading per-frame inputs (for example, time values, poses, hand deltas) into shared buffers/tensors or
+   *     placeholders to prepare for the next pipeline execution.</li>
+   * <li>Advancing app-side animations or housekeeping logic that interacts with Secure MR content.</li>
+   * </ul>
+   *
+   * <b>Notes</b>:
+   * <ul>
+   * <li>This method runs on the OpenXR program's main thread before events are polled and before a frame is
+   *     rendered, so avoid heavy computations or long blocking operations.</li>
+   * <li>If interacting with worker threads created in <code>CreatePipelines</code> or <code>RunPipelines</code>,
+   *     ensure proper synchronization and keep critical sections short.</li>
+   * <li>Do not submit pipelines in this method; use <code>RunPipelines</code> for pipeline submission.</li>
+   * </ul>
+   */
+  virtual void Tick() {}
 
   /**
    * This method is designed to indicate the OpenXR app's main loop whether the Secure MR
@@ -91,6 +137,29 @@ class ISecureMR {
    * @return True if all Secure MR resources are ready.
    */
   [[nodiscard]] virtual bool LoadingFinished() const = 0;
+
+  // Optional: request a head-locked 2D overlay (quad) during rendering.
+  // Default: no overlay.
+  [[nodiscard]] virtual bool WantsScanOverlay() const { return false; }
+
+  // Optional: provide dynamic RGBA data for the head-locked overlay.
+  // Return true if outRgba is filled/updated and needs uploading to the overlay swapchain.
+  // The buffer must have size width*height*4 in RGBA (8-bit) format.
+  virtual bool UpdateOverlayRgba(int /*width*/, int /*height*/, std::vector<uint8_t>& /*outRgba*/) {
+    return false;
+  }
+
+  // Optional: user 3D mesh (for native procedural content). Default: disabled.
+  // If enabled, UpdateUserMesh should fill outVerts/outIdx and set outWorldPose.
+  // Geometry::Vertex uses Position+Color, and indices are 16-bit triangle indices.
+  [[nodiscard]] virtual bool WantsUserMesh() const { return false; }
+  virtual bool UpdateUserMesh(std::vector<struct Geometry::Vertex>& /*outVerts*/,
+                              std::vector<uint16_t>& /*outIdx*/, XrPosef& /*outWorldPose*/) {
+    return false;
+  }
+
+  // Optional: allow apps to suppress the default controller visualization cubes.
+  [[nodiscard]] virtual bool WantsControllerVisualization() const { return true; }
 };
 
 std::shared_ptr<ISecureMR> CreateSecureMrProgram(const XrInstance& instance, const XrSession& session);

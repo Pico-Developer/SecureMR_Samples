@@ -16,7 +16,6 @@
 #define SESSION_H
 #include <optional>
 #include <string>
-
 #include "openxr/openxr.h"
 
 namespace SecureMR {

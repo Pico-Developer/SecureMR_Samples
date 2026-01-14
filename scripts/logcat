@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""
+Android Logcat Viewer
+A command-line tool for viewing and filtering Android logcat output with colored formatting.
+
+Features:
+- Color-coded log levels (Verbose, Debug, Info, Warn, Error, Fatal)
+- Package name filtering
+- Real-time log monitoring
+- Clean timestamp and thread information display
+- Automatic process monitoring and reconnection
+
+Usage:
+    # View all logs
+    ./logcat
+
+    # Filter logs by package name
+    ./logcat -p com.example.app
+
+    # Common use cases:
+    1. Monitor specific app logs:
+       ./logcat -p com.android.chrome
+    
+    2. Watch app startup:
+       ./logcat -p com.example.app
+       (Will wait until the app starts and then begin showing logs)
+
+Key Features:
+- Automatically clears existing logs when starting
+- Waits for the specified package to start if it's not running
+- Handles process termination and restart gracefully
+- Color-coded output for better readability
+- Clean exit with Ctrl+C
+
+Requirements:
+- Python 3.6+
+- ADB (Android Debug Bridge) installed and in PATH
+- Connected Android device or emulator
+"""
+
+import subprocess
+import re
+import sys
+from datetime import datetime
+from enum import Enum
+from typing import Optional
+import argparse
+import threading
+import queue
+import signal
+import time
+
+class LogLevel(Enum):
+    VERBOSE = ('\033[37m', 'V')  # 白色
+    DEBUG = ('\033[36m', 'D')    # 青色
+    INFO = ('\033[32m', 'I')     # 绿色
+    WARN = ('\033[33m', 'W')     # 黄色
+    ERROR = ('\033[31m', 'E')    # 红色
+    FATAL = ('\033[35m', 'F')    # 紫色
+    
+    def __init__(self, color_code, letter):
+        self.color_code = color_code
+        self.letter = letter
+
+class LogEntry:
+    def __init__(self, timestamp: str, pid: str, tid: str, level: LogLevel, 
+                 tag: str, message: str):
+        self.timestamp = timestamp
+        self.pid = pid
+        self.tid = tid
+        self.level = level
+        self.tag = tag
+        self.message = message
+
+class LogcatReader:
+    RESET_COLOR = '\033[0m'
+    
+    def __init__(self, package_name: Optional[str] = None, regex_pattern: Optional[str] = None):
+        self.package_name = package_name
+        self.regex_pattern = regex_pattern
+        self.log_queue = queue.Queue()
+        self.should_stop = False
+        self._compiled_regex = re.compile(regex_pattern) if regex_pattern else None
+        
+    def start(self):
+        # 清除已有日志
+        subprocess.run(['adb', 'logcat', '-c'])
+        
+        # 启动日志读取线程
+        self.read_thread = threading.Thread(target=self._read_logs)
+        self.read_thread.daemon = True
+        self.read_thread.start()
+        
+        # 启动日志处理线程
+        self.process_thread = threading.Thread(target=self._process_logs)
+        self.process_thread.daemon = True
+        self.process_thread.start()
+        
+    def stop(self):
+        self.should_stop = True
+        if self.read_thread:
+            self.read_thread.join()
+        if self.process_thread:
+            self.process_thread.join()
+          
+    def _get_package_pid(self):
+        while not self.should_stop:
+            try:
+                # 使用shell命令获取进程PID
+                cmd = f"adb shell pidof {self.package_name}"
+                result = subprocess.check_output(cmd, shell=True, text=True)
+                pid = result.strip()
+                if pid:
+                    print(f"找到包名 {self.package_name} 的PID: {pid}")
+                    return pid
+            except subprocess.CalledProcessError:
+                print(f"等待包名 {self.package_name} 启动...")
+                # 等待1秒后重试
+                time.sleep(1)
+        return None
+
+    def _read_logs(self):
+        cmd = ['adb', 'logcat', '-v', 'threadtime']
+        if self.package_name:
+
+            pid = self._get_package_pid()
+            if pid:
+                cmd.extend(['--pid', pid])
+            else:
+                # 如果获取不到PID，就用包名过滤
+                cmd.extend([f'--pid=$(pidof {self.package_name})'])
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding='utf-8',
+            errors='replace'
+        )
+        
+        while not self.should_stop:
+            line = process.stdout.readline()
+            if line:
+                self.log_queue.put(line)
+                
+        process.terminate()
+        
+    def _process_logs(self):
+        log_pattern = re.compile(
+            r'(\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3})\s+'  # timestamp
+            r'(\d+)\s+'                                      # pid
+            r'(\d+)\s+'                                      # tid
+            r'([VDIWEF])\s+'                                 # log level
+            r'([^:]+)\s*:\s*'                               # tag
+            r'(.*)'                                         # message
+        )
+        
+        while not self.should_stop:
+            try:
+                line = self.log_queue.get(timeout=1)
+                match = log_pattern.match(line)
+                if match:
+                    timestamp, pid, tid, level_char, tag, message = match.groups()
+                    # 转换日志级别
+                    level = next((l for l in LogLevel if l.letter == level_char), None)
+                    if level:
+                        entry = LogEntry(
+                            timestamp=timestamp,
+                            pid=pid,
+                            tid=tid,
+                            level=level,
+                            tag=tag.strip(),
+                            message=message.strip()
+                        )
+                        # 如果有正则过滤，只输出匹配的日志
+                        if self._compiled_regex:
+                            if self._compiled_regex.search(line):
+                                self._print_log(entry)
+                        else:
+                            self._print_log(entry)
+            except queue.Empty:
+                continue
+                
+    def _print_log(self, entry: LogEntry):
+        # 格式化输出
+        print(f'{entry.level.color_code}'
+              f'{entry.timestamp} {entry.pid}/{entry.tid} '
+              f'{entry.level.letter}/{entry.tag}: {entry.message}'
+              f'{self.RESET_COLOR}')
+
+def main():
+    parser = argparse.ArgumentParser(description='Android Logcat Viewer')
+    parser.add_argument('-p', '--package',
+                        help='Package name to filter logs')
+    parser.add_argument('-e', '--regex',
+                       help='Regex pattern to filter log output')
+    args = parser.parse_args()
+
+    if not args.package and not args.regex:
+        args.regex = "Secure MR"
+
+    reader = LogcatReader(args.package, args.regex)
+    
+    def signal_handler(signum, frame):
+        print('\nStopping log reader...')
+        reader.stop()
+        sys.exit(0)
+        
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        reader.start()
+        # 保持主线程运行
+        while True:
+            signal.pause()
+    except KeyboardInterrupt:
+        reader.stop()
+
+if __name__ == '__main__':
+    main()

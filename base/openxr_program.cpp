@@ -5,12 +5,13 @@
 // This file may have been modified by Bytedance Ltd. and/or its affiliates ("Bytedance's Modifications"). All
 // Bytedance's Modifications are Copyright (2025) Bytedance Ltd. and/or its affiliates.
 
-#include "openxr/openxr.h"
 #include "pch.h"
+#include "openxr/openxr.h"
 #include "common.h"
 #include "options.h"
 #include "platformplugin.h"
 #include "graphicsplugin.h"
+#include "oxr_utils/geometry.h"
 #include "openxr_program.h"
 #include "xr_linear.h"
 #include <array>
@@ -193,6 +194,13 @@ struct OpenXrProgram : IOpenXrProgram {
                    [](const std::string& ext) { return ext.c_str(); });
 
     extensions.push_back(XR_PICO_SECURE_MIXED_REALITY_EXTENSION_NAME);
+    extensions.push_back(XR_PICO_READBACK_TENSOR_EXTENSION_NAME);
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+    extensions.push_back(XR_PICO_READBACK_TENSOR_VULKAN_EXTENSION_NAME);
+#endif
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+    extensions.push_back(XR_PICO_READBACK_TENSOR_OPENGLES_EXTENSION_NAME);
+#endif
     extensions.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 
     XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
@@ -573,6 +581,13 @@ struct OpenXrProgram : IOpenXrProgram {
     LogReferenceSpaces();
     InitializeActions();
     CreateVisualizedSpaces();
+    // Create a pure view space for overlays
+    {
+      XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo("View");
+      XrSpace viewSpace{XR_NULL_HANDLE};
+      CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &viewSpace));
+      m_viewSpace = viewSpace;
+    }
 
     {
       XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(m_options->AppSpace);
@@ -680,6 +695,8 @@ struct OpenXrProgram : IOpenXrProgram {
 
         m_swapchainImages.insert(std::make_pair(swapchain.handle, std::move(swapchainImages)));
       }
+      // Create overlay quad swapchain after main swapchains are ready
+      CreateOverlaySwapchain();
     }
   }
 
@@ -706,7 +723,6 @@ struct OpenXrProgram : IOpenXrProgram {
 
   void PollEvents(bool* exitRenderLoop, bool* requestRestart) override {
     *exitRenderLoop = *requestRestart = false;
-
     // Process all pending messages.
     while (const XrEventDataBaseHeader* event = TryReadNextEvent()) {
       switch (event->type) {
@@ -896,6 +912,59 @@ struct OpenXrProgram : IOpenXrProgram {
       if (RenderLayer(frameState.predictedDisplayTime, projectionLayerViews, layer)) {
         layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer));
       }
+      if (m_overlayInitialized && m_secureMrProgram && m_secureMrProgram->WantsScanOverlay()) {
+        // Ensure overlay swapchain has a recently released image for the runtime
+        XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
+        uint32_t overlayImageIndex = 0;
+        CHECK_XRCMD(xrAcquireSwapchainImage(m_overlaySwapchain.handle, &acquireInfo, &overlayImageIndex));
+        XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+        waitInfo.timeout = XR_INFINITE_DURATION;
+        CHECK_XRCMD(xrWaitSwapchainImage(m_overlaySwapchain.handle, &waitInfo));
+
+        // Allow the app to update overlay RGBA content dynamically.
+        const int W = m_overlaySwapchain.width;
+        const int H = m_overlaySwapchain.height;
+        if (m_secureMrProgram->UpdateOverlayRgba(W, H, m_overlayRgba)) {
+          if (m_overlayRgba.size() != static_cast<size_t>(W) * H * 4) {
+            // Ensure buffer size correctness if the implementation changed it.
+            m_overlayRgba.resize(static_cast<size_t>(W) * H * 4, 0);
+          }
+          m_graphicsPlugin->UploadRgbaToSwapchainImages(m_overlayImages, W, H, m_overlayRgba);
+          Log::Write(Log::Level::Debug,
+                     Fmt("OpenXR|Overlay: Uploaded dynamic RGBA (%dx%d, bytes=%zu)", W, H, m_overlayRgba.size()));
+        }
+
+        XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
+        CHECK_XRCMD(xrReleaseSwapchainImage(m_overlaySwapchain.handle, &releaseInfo));
+
+        // Submit two quads with different poses for left/right eyes
+        XrCompositionLayerQuad quadL{XR_TYPE_COMPOSITION_LAYER_QUAD};
+        quadL.space = m_viewSpace == XR_NULL_HANDLE ? m_appSpace : m_viewSpace;
+        quadL.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
+        quadL.layerFlags =
+            m_options->Parsed.EnvironmentBlendMode == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND
+                ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT
+                : 0;
+        quadL.subImage.swapchain = m_overlaySwapchain.handle;
+        quadL.subImage.imageArrayIndex = 0;
+        quadL.subImage.imageRect.offset = {0, 0};
+        quadL.subImage.imageRect.extent = {m_overlaySwapchain.width, m_overlaySwapchain.height};
+        quadL.pose = Math::Pose::Translation({0.0f, 0.f, -0.35f});
+        quadL.size = {0.3f, 0.3f};
+        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&quadL));
+
+        XrCompositionLayerQuad quadR{XR_TYPE_COMPOSITION_LAYER_QUAD};
+        quadR.space = m_viewSpace == XR_NULL_HANDLE ? m_appSpace : m_viewSpace;
+        quadR.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+        quadR.layerFlags = quadL.layerFlags;
+        quadR.subImage.swapchain = m_overlaySwapchain.handle;
+        quadR.subImage.imageArrayIndex = 0;
+        quadR.subImage.imageRect.offset = {0, 0};
+        quadR.subImage.imageRect.extent = {m_overlaySwapchain.width, m_overlaySwapchain.height};
+        quadR.pose = Math::Pose::Translation({0.0f, 0.f, -0.35f});
+        quadR.size = quadL.size;
+        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&quadR));
+      }
     }
 
     // End the frame without standard layers
@@ -905,6 +974,69 @@ struct OpenXrProgram : IOpenXrProgram {
     frameEndInfo.layerCount = (uint32_t)layers.size();
     frameEndInfo.layers = layers.data();
     CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));
+  }
+
+  void CreateOverlaySwapchain() {
+    if (m_overlayInitialized) return;
+    // Choose overlay size and format
+    m_overlaySwapchain.width = 1024;
+    m_overlaySwapchain.height = 1024;
+
+    XrSwapchainCreateInfo swapchainCreateInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
+    swapchainCreateInfo.arraySize = 1;
+    swapchainCreateInfo.format = m_colorSwapchainFormat;
+    swapchainCreateInfo.width = m_overlaySwapchain.width;
+    swapchainCreateInfo.height = m_overlaySwapchain.height;
+    swapchainCreateInfo.mipCount = 1;
+    swapchainCreateInfo.faceCount = 1;
+    swapchainCreateInfo.sampleCount = 1;
+    swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
+    CHECK_XRCMD(xrCreateSwapchain(m_session, &swapchainCreateInfo, &m_overlaySwapchain.handle));
+
+    uint32_t imageCount = 0;
+    CHECK_XRCMD(xrEnumerateSwapchainImages(m_overlaySwapchain.handle, 0, &imageCount, nullptr));
+    m_overlayImages = m_graphicsPlugin->AllocateSwapchainImageStructs(imageCount, swapchainCreateInfo);
+    CHECK_XRCMD(xrEnumerateSwapchainImages(m_overlaySwapchain.handle, imageCount, &imageCount, m_overlayImages[0]));
+
+    // Generate an RGBA image with transparent background and a 500x500 red border
+    const int W = m_overlaySwapchain.width;
+    const int H = m_overlaySwapchain.height;
+    m_overlayRgba.assign(static_cast<size_t>(W) * H * 4, 0);
+    const int rectW = 500;
+    const int rectH = 500;
+    const int thickness = 12; // increased line width for red border
+    const int left = (W - rectW) / 2;
+    const int top = (H - rectH) / 2 - 100;
+    const int right = left + rectW - 1;
+    const int bottom = top + rectH - 1;
+    auto setPixel = [&](int x, int y) {
+      if (x < 0 || x >= W || y < 0 || y >= H) return;
+      size_t idx = (static_cast<size_t>(y) * W + x) * 4;
+      m_overlayRgba[idx + 0] = 255;
+      m_overlayRgba[idx + 1] = 0;
+      m_overlayRgba[idx + 2] = 0;
+      m_overlayRgba[idx + 3] = 255;
+    };
+    for (int t = 0; t < thickness; ++t) {
+      int yTop = top + t;
+      int yBot = bottom - t;
+      for (int x = left; x <= right; ++x) {
+        setPixel(x, yTop);
+        setPixel(x, yBot);
+      }
+    }
+    for (int t = 0; t < thickness; ++t) {
+      int xL = left + t;
+      int xR = right - t;
+      for (int y = top; y <= bottom; ++y) {
+        setPixel(xL, y);
+        setPixel(xR, y);
+      }
+    }
+
+    m_graphicsPlugin->UploadRgbaToSwapchainImages(m_overlayImages, W, H, m_overlayRgba);
+    m_overlayInitialized = true;
+    Log::Write(Log::Level::Info, Fmt("OpenXR|Overlay: Created overlay swapchain %dx%d and uploaded initial content", W, H));
   }
 
   bool RenderLayer(XrTime predictedDisplayTime, std::vector<XrCompositionLayerProjectionView>& projectionLayerViews,
@@ -935,6 +1067,8 @@ struct OpenXrProgram : IOpenXrProgram {
 
     // For each locatable space that we want to visualize, render a 25cm cube.
     std::vector<Cube> cubes;
+    const bool renderControllerCubes =
+        (m_secureMrProgram == nullptr) || m_secureMrProgram->WantsControllerVisualization();
     static auto firstLoadingTime = std::chrono::steady_clock::now();
 
     if (!m_secureMrProgram->LoadingFinished()) {
@@ -960,7 +1094,7 @@ struct OpenXrProgram : IOpenXrProgram {
       }
     }
 
-    // Render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be
+    // Optionally render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be
     // true when the application has focus.
     std::array<XrVector3f*, 2> handDeltas{};
     for (auto hand : {Side::LEFT, Side::RIGHT}) {
@@ -971,7 +1105,9 @@ struct OpenXrProgram : IOpenXrProgram {
         if ((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
             (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
           float scale = 0.1f * m_input.handScale[hand];
-          cubes.push_back(Cube{spaceLocation.pose, {scale, scale, scale}});
+          if (renderControllerCubes) {
+            cubes.push_back(Cube{spaceLocation.pose, {scale, scale, scale}});
+          }
 
           if (m_input.handToggle[hand] == InputState::PRESS_DOWN) {
             if (!m_input.toggleStartPosition[hand]) {
@@ -1002,6 +1138,31 @@ struct OpenXrProgram : IOpenXrProgram {
     }
     if (m_secureMrProgram) {
       m_secureMrProgram->UpdateHandPose(handDeltas[0], handDeltas[1]);
+      // Head motion: compare current view[0] pose with previous
+      static bool hasPrevHead = false;
+      static XrPosef prevHeadPose{};
+      float linDelta = 0.f;
+      float angDelta = 0.f;
+      if (!m_views.empty()) {
+        const XrPosef& cur = m_views[0].pose;
+        m_secureMrProgram->UpdateHeadPose(cur);
+        if (hasPrevHead) {
+          const float dx = cur.position.x - prevHeadPose.position.x;
+          const float dy = cur.position.y - prevHeadPose.position.y;
+          const float dz = cur.position.z - prevHeadPose.position.z;
+          linDelta = std::sqrt(dx * dx + dy * dy + dz * dz);
+          // Quaternion delta angle = 2*acos(|dot(q1,q2)|) when normalized
+          const float dot = std::abs(cur.orientation.x * prevHeadPose.orientation.x +
+                                     cur.orientation.y * prevHeadPose.orientation.y +
+                                     cur.orientation.z * prevHeadPose.orientation.z +
+                                     cur.orientation.w * prevHeadPose.orientation.w);
+          float clamped = std::min(1.0f, std::max(0.0f, dot));
+          angDelta = 2.0f * std::acos(clamped);
+        }
+        prevHeadPose = cur;
+        hasPrevHead = true;
+      }
+      m_secureMrProgram->UpdateHeadMotion(linDelta, angDelta);
     }
     for (const auto& handPtr : handDeltas) {
       delete handPtr;
@@ -1032,6 +1193,19 @@ struct OpenXrProgram : IOpenXrProgram {
           m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
       m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
 
+      // Optional: render user-provided procedural mesh (e.g., native Rubik's cube)
+      if (m_secureMrProgram && m_secureMrProgram->WantsUserMesh()) {
+        std::vector<Geometry::Vertex> verts;
+        std::vector<uint16_t> idx;
+        XrPosef worldPose{};
+        worldPose.orientation.w = 1.0f;
+        if (m_secureMrProgram->UpdateUserMesh(verts, idx, worldPose) && !verts.empty() && !idx.empty()) {
+          m_graphicsPlugin->RenderUserMesh(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat,
+                                          verts.data(), static_cast<uint32_t>(verts.size()), idx.data(),
+                                          static_cast<uint32_t>(idx.size()), worldPose);
+        }
+      }
+
       XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
       CHECK_XRCMD(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo));
     }
@@ -1048,7 +1222,12 @@ struct OpenXrProgram : IOpenXrProgram {
 
   void InitializeSecureMrProgram() override {
     m_secureMrProgram = SecureMR::CreateSecureMrProgram(m_instance, m_session);
+    // Provide overlay size before framework/pipeline creation so app can align image sizes.
+    if (m_secureMrProgram) {
+      m_secureMrProgram->SetOverlaySize(m_overlaySwapchain.width, m_overlaySwapchain.height);
+    }
     m_secureMrProgram->CreateFramework();
+    m_secureMrProgram->RequestPermission(IOpenXrProgram::gapp);
     m_secureMrProgram->CreatePipelines();
   }
 
@@ -1058,6 +1237,14 @@ struct OpenXrProgram : IOpenXrProgram {
       return;
     }
     m_secureMrProgram->RunPipelines();
+  }
+
+  void TickSecureMr() override {
+    if (m_secureMrProgram == nullptr) {
+      Log::Write(Log::Level::Error, "m_secureMrProgram is nullptr, skip RunSecureMrVSTImagePipeline");
+      return;
+    }
+    m_secureMrProgram->Tick();
   }
 
   void DestroySecureMr() override {
@@ -1093,6 +1280,16 @@ struct OpenXrProgram : IOpenXrProgram {
   const std::set<XrEnvironmentBlendMode> m_acceptableBlendModes;
 
   std::shared_ptr<SecureMR::ISecureMR> m_secureMrProgram = nullptr;
+  // Overlay quad swapchain and space
+  struct OverlaySwapchain {
+    XrSwapchain handle{XR_NULL_HANDLE};
+    int width{0};
+    int height{0};
+  } m_overlaySwapchain;
+  bool m_overlayInitialized{false};
+  std::vector<XrSwapchainImageBaseHeader*> m_overlayImages;  // Overlay swapchain images
+  std::vector<uint8_t> m_overlayRgba;                        // Staging RGBA buffer for overlay updates
+  XrSpace m_viewSpace{XR_NULL_HANDLE};
 };
 
 }  // namespace

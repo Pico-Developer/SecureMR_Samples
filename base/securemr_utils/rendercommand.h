@@ -94,7 +94,7 @@ struct RenderCommand {
             opTensor = std::make_shared<PipelineTensor>(
                 gltfTensor->getPipeline(), TensorAttribute{.dimensions = {static_cast<int>(arg.size())},
                                                            .channels = 4,
-                                                           .usage = XR_SECURE_MR_TENSOR_TYPE_SCALAR_PICO,
+                                                           .usage = XR_SECURE_MR_TENSOR_TYPE_COLOR_PICO,
                                                            .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
             std::vector<uint8_t> flattedArg;
             for (auto& eachColor : arg) {
@@ -108,7 +108,7 @@ struct RenderCommand {
             opTensor = std::make_shared<PipelineTensor>(
                 gltfTensor->getPipeline(), TensorAttribute{.dimensions = {2},
                                                            .channels = 4,
-                                                           .usage = XR_SECURE_MR_TENSOR_TYPE_SCALAR_PICO,
+                                                           .usage = XR_SECURE_MR_TENSOR_TYPE_COLOR_PICO,
                                                            .dataType = XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO});
             uint8_t flattedArg[]{arg[0][0], arg[0][1], arg[0][2], arg[0][3],
                                  arg[1][0], arg[1][1], arg[1][2], arg[1][3]};
