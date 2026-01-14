@@ -13,6 +13,8 @@
 | UFO (Face Detection) | MediaPipe Face Detection | [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face?searchTerm=face) |
 | Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
+| MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
+| Rubic's Cube (Solver) | Sticker Color Classifier | N/A (Internal) |
 
 ## Project aims
 
@@ -73,10 +75,22 @@ deploy your own algorithm packages.
 ├── samples
 │   │            Directory for all sample projects. 
 │   │         
-│   └── ufo
-│               This is a sample showing a UFO "chasing" the human being
-│               whoever it sees. The sample app uses an open-sourced
-│               face detection model from MediaPipe.  
+│   ├── ufo
+│   │             This is a sample showing a UFO "chasing" the human being
+│   │             whoever it sees. The sample app uses an open-sourced
+│   │             face detection model from MediaPipe.  
+│   │
+│   ├── mnistwild
+│   │             Hand-written digit recognition using a JSON-defined
+│   │             inference pipeline.
+│   │
+│   ├── rubics_cube
+│   │             A Rubik's Cube scanner and solver with real-time
+│   │             color classification.
+│   │
+│   └── model_inspect
+│                 Diagnostic tool for validating serialized models 
+│                 on device.
 |
 └── ...
 ```
@@ -85,7 +99,7 @@ deploy your own algorithm packages.
 
 #### (A) To run the demo, you will need
 
-1. A PICO 4 Ultra device with the latest system update (OS version >= 5.14.0U)
+1. A PICO 4 Ultra device with the latest system update (OS version >= 5.15.0)
 1. Android Studio, with Android NDK installed, suggested NDK version = 25
 1. Gradle and Android Gradle plugin (usually bundled with Android Studio install),
    suggested Gradle version = 8.7, Android Gradle Plugin version = 8.3.2
@@ -99,10 +113,13 @@ deploy your own algorithm packages.
 
 1. Install and configure according to the [prerequisite](#prerequisite). 
 1. Open the repository root in Android Studio, as an Android project
-1. After project sync, you will find there are four modules detected by the Android Studio, all under the `samples` folder: 
+1. After project sync, you will find several modules detected by the Android Studio, all under the `samples` folder: 
   1. `pose` which contains a pose detection demo
   1. `ufo` which contains a face detection demo
   1. `yolo` which contains an object detection demo
+  1. `mnistwild` which contains a hand-written digit recognition demo
+  1. `rubics_cube` which contains a Rubik's Cube solver demo
+  1. `model_inspect` which is a utility for model validation
   1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
       simplification using SecureMR Utils classes. 
 1. Connect to a PICO 4 Ultra device with the latest OS update installed
