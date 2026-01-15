@@ -161,7 +161,26 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
    * evaluate an arithmetic expression, such as <code>{0} + {1} / 2</code>.
    * Encapsulating operator of type <code>XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO</code>
    * @param expression The arithmetic expression, where you can use <code>{IDX}</code> to refer to the No. IDX
-   *                   operands. We support +, -, *, / and ().
+   *                   operands. We support +, -, *, /, ^, T, inv, sin, cos, tan, asin, acos, atan,
+   *                   sinh, cosh, tanh, (, and), where
+   *                   <code>T</code> means transpose of a matrix,
+   *                   <code>inv</code> means the inverse of a matrix, and
+   *                   <code>^</code> means the exponential of a matrix.
+   *                   For example, you can use the method like:
+   *                   <ul>
+   *                   <li>Linear arithmetic: <code>pipeline.arithmetic("{0}+{1}*2",
+   *                   std::vector{tensor1, tensor2}, result);</code></li>
+   *                   <li>Parentheses： <code>pipeline.arithmetic("({0}+{1})*2",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Complex parentheses <code>pipeline.arithmetic("4.0 - ( ( {0} * {1}) + 2)",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Exponential: <code>pipeline.arithmetic("4.0 - ({0} * {1}) ^ 2",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Inverse: <code>pipeline.arithmetic("4.0 -inv({0} * {1})",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Transpose: <code>pipeline.arithmetic("4.0 -inv({0} * {1})",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   </ul>
    * @param ops Operands to the arithmetic expression. The usage type of all the operands must be declared as
    *            <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code>
    * @param result The result from the arithmetic expression, whose usage type must also be
