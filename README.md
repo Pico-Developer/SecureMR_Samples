@@ -2,9 +2,9 @@
 
 ## Samples for SecureMR.
 
-| Face tracking | Pose estimation | YOLO |
-|:-------------:|:---------------:|:----:|
-| ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
+| Face tracking | Pose estimation | YOLO | Mnistwild | Rubic's cube |
+|:-------------:|:---------------:|:----:|:---------:|:------------:|
+| ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) | ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) |
 
 ## Models Used in Samples
 
@@ -14,7 +14,7 @@
 | Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
 | MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
-| Rubic's Cube (Solver) | Sticker Color Classifier | N/A (Internal) |
+| Rubic's Cube (Solver) | No model used | N/A (Internal) |
 
 ## Project aims
 
