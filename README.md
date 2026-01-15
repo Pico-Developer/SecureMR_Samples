@@ -2,9 +2,11 @@
 
 ## Samples for SecureMR.
 
-| Face tracking | Pose estimation | YOLO | Mnistwild | Rubic's cube |
-|:-------------:|:---------------:|:----:|:---------:|:------------:|
-| ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) | ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) |
+| Face tracking | Pose estimation | YOLO |
+|:-------------:|:---------------:|:----:|
+| ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
+| **Mnistwild** | **Rubic's cube** | **Whack-a-Mole** |
+| ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | |
 
 ## Models Used in Samples
 
