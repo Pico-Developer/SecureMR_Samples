@@ -83,12 +83,21 @@ deploy your own algorithm packages.
 │   │             face detection model from MediaPipe.  
 │   │
 │   ├── mnistwild
-│   │             Hand-written digit recognition using a JSON-defined
+│   │             Hand-written digit recognition using a self-trained MNIST-based
 │   │             inference pipeline.
+│   │
+│   ├── readback
+│   │             A minimumal demo that shows the usage of the readback APIs, which
+│   │             allows an app, if proper camera or spatial-data permission(s)
+│   │             is granted, to read the tensor content back from the SecureMR server.
+│   │             This demo does not deploy any algorithms, nor present any render
+│   │             effects: it simply calls the readback methods to obtain the camera
+│   │             image and save it to local storage. 
 │   │
 │   ├── rubics_cube
 │   │             A Rubik's Cube scanner and solver with real-time
-│   │             color classification.
+│   │             color classification, presenting the step-by-step instructions on
+│   │             the screen. 
 │   │
 │   └── model_inspect
 │                 Diagnostic tool for validating serialized models 
@@ -116,14 +125,15 @@ deploy your own algorithm packages.
 1. Install and configure according to the [prerequisite](#prerequisite). 
 1. Open the repository root in Android Studio, as an Android project
 1. After project sync, you will find several modules detected by the Android Studio, all under the `samples` folder: 
-  1. `pose` which contains a pose detection demo
-  1. `ufo` which contains a face detection demo
-  1. `yolo` which contains an object detection demo
-  1. `mnistwild` which contains a hand-written digit recognition demo
-  1. `rubics_cube` which contains a Rubik's Cube solver demo
-  1. `model_inspect` which is a utility for model validation
-  1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
-      simplification using SecureMR Utils classes. 
+     1. `pose` which contains a pose detection demo
+     1. `ufo` which contains a face detection demo
+     1. `yolo` which contains an object detection demo
+     1. `mnistwild` which contains a hand-written digit recognition demo
+     1. `readback` which contains a minimal demo showing the usage of the readback APIs
+     1. `rubics_cube` which contains a Rubik's Cube solver demo
+     1. `model_inspect` which is a utility for model validation
+     1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
+         simplification using SecureMR Utils classes. 
 1. Connect to a PICO 4 Ultra device with the latest OS update installed
 1. Select the module you want to run, and click the launch button.
 
