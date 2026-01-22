@@ -27,9 +27,14 @@ customized MR-based effects with deployment of open-sourced
 machine learning algorithms. 
 
 Additionally, the project provides a set of utility classes,
-located under [`./base/securemr_utils`](base/securemr_utils/README.md)
+located under [`base/securemr_utils`](base/securemr_utils/README.md)
 to simplify your
 development of SecureMR-enabled applications. 
+
+The [`sample/mnist`](samples/mnistwild) also demonstrates how to defines the SecureMR
+pipelines completely in JSON, using which allows your application
+to dynamically load and update pipelines at run time, without hard
+coding the algorithms into the app. 
 
 A docker file together with necessary resources are also 
 contained under the `Docker/` directory, if you would like
