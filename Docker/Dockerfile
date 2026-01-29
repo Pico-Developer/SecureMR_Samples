@@ -128,25 +128,8 @@ RUN ANDROID_NDK_ZIP="android-ndk-${ANDROID_NDK_VERSION}-linux.zip" && \
     rm -rf "/tmp/${ANDROID_NDK_ZIP}"
 
 # Copy scripts and make them executable
-COPY scripts/ /opt/scripts/
+COPY Docker/scripts/ /opt/scripts/
 RUN chmod +x /opt/scripts/*.sh
-
-# Copy and extract pySecureMR
-COPY pySecureMR-dev.tar.gz /tmp/
-RUN cd /tmp && \
-    mkdir -p /tmp/pySecureMR-dev && \
-    tar xzf pySecureMR-dev.tar.gz -C /tmp/pySecureMR-dev && \
-    mkdir -p /pySecureMR && \
-    if [ -d /tmp/pySecureMR-dev/pySecureMR-dev ]; then \
-        mv /tmp/pySecureMR-dev/pySecureMR-dev/* /pySecureMR/; \
-    elif [ -d /tmp/pySecureMR-dev/pySecureMR ]; then \
-        mv /tmp/pySecureMR-dev/pySecureMR/* /pySecureMR/; \
-    else \
-        mv /tmp/pySecureMR-dev/* /pySecureMR/; \
-    fi && \
-    cd /pySecureMR && \
-    pip3 install --no-build-isolation --no-deps . && \
-    rm -rf /tmp/pySecureMR-dev.tar.gz /tmp/pySecureMR-dev
 
 # Add QNN SDK binaries to PATH for global access
 ENV PATH=$QNN_SDK_ROOT/bin:$QNN_SDK_ROOT/bin/x86_64-linux-clang:${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin:$ANDROID_NDK_ROOT:/usr/local/android-sdk/platform-tools:/opt/scripts:$PATH
@@ -160,5 +143,5 @@ WORKDIR /app
 
 # Copy app config files
 RUN mkdir -p /opt/config
-COPY HtpConfigFile.json /opt/config/HtpConfigFile.json
-COPY PerfSetting.conf /opt/config/PerfSetting.conf
+COPY Docker/HtpConfigFile.json /opt/config/HtpConfigFile.json
+COPY Docker/PerfSetting.conf /opt/config/PerfSetting.conf
