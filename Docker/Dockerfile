@@ -35,19 +35,23 @@ RUN mkdir -p /usr/local/android-sdk && \
     ln -s /usr/local/android-sdk/platform-tools/adb /usr/bin/adb
 
 # Define environment variables
-ENV QNN_SDK_VERSION=2.29.0.241129
+ENV QNN_SDK_VERSION=2.37.1.250807
 ENV QNN_INSTALLATION_DIR="/opt/qnn/"
 ENV QNN_SDK_ROOT="${QNN_INSTALLATION_DIR}/${QNN_SDK_VERSION}"
 
 # Download and install QNN SDK
-RUN QNN_SDK_VERSION=2.29.0.241129 && \
-    QNN_SDK_ZIP="qnn_sdk_${QNN_SDK_VERSION}.zip" && \
-    QNN_SDK_URL="https://softwarecenter.qualcomm.com/api/download/software/qualcomm_neural_processing_sdk/v${QNN_SDK_VERSION}.zip" && \
+RUN QNN_SDK_VERSION=2.37.1.250807 && \
+    QNN_SDK_ZIP="qnn2.37.1.250807.zip" && \
+    QNN_SDK_URL="https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.37.1.250807/v2.37.1.250807.zip" && \
     echo "Downloading QNN SDK..." && \
     wget --progress=dot:giga -O "/tmp/${QNN_SDK_ZIP}" "${QNN_SDK_URL}" && \
     mkdir -p "${QNN_INSTALLATION_DIR}" && \
     unzip -qo "/tmp/${QNN_SDK_ZIP}" -d /tmp/qnn_sdk && \
-    mv /tmp/qnn_sdk/qairt/* "${QNN_INSTALLATION_DIR}" && \
+    if [ -d /tmp/qnn_sdk/qairt ]; then \
+        mv /tmp/qnn_sdk/qairt/* "${QNN_INSTALLATION_DIR}"; \
+    else \
+        mv /tmp/qnn_sdk/* "${QNN_INSTALLATION_DIR}"; \
+    fi && \
     echo "QNN installed in ${QNN_INSTALLATION_DIR}" && \
     ls -lah "${QNN_INSTALLATION_DIR}" && \
     rm -rf /tmp/qnn_sdk /tmp/${QNN_SDK_ZIP}
@@ -63,7 +67,7 @@ RUN apt-get update && apt-get install -y \
     libpython3.10 \
     && rm -rf /var/lib/apt/lists/*
 
-ENV MY_ENV_NAME=qnn229_env
+ENV MY_ENV_NAME=qnn237_env
 # Set up Python virtual environment
 WORKDIR $QNN_SDK_ROOT
 RUN python3.10 -m venv ${MY_ENV_NAME} && \
@@ -71,6 +75,10 @@ RUN python3.10 -m venv ${MY_ENV_NAME} && \
 
 # Ensure pip3 is available within the virtual environment
 RUN bash -c ". ${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin/activate && which pip3"
+
+# Preinstall a matplotlib build that supports Python 3.10 to avoid source build failures in the QNN checker
+RUN bash -c ". ${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin/activate && \
+    pip install --no-cache-dir matplotlib==3.8.4"
 
 # Update Python dependencies for QNN SDK
 RUN bash -c ". ${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin/activate && \
@@ -126,11 +134,18 @@ RUN chmod +x /opt/scripts/*.sh
 # Copy and extract pySecureMR
 COPY pySecureMR-dev.tar.gz /tmp/
 RUN cd /tmp && \
-    tar xzf pySecureMR-dev.tar.gz && \
+    mkdir -p /tmp/pySecureMR-dev && \
+    tar xzf pySecureMR-dev.tar.gz -C /tmp/pySecureMR-dev && \
     mkdir -p /pySecureMR && \
-    mv pySecureMR-dev/* /pySecureMR/ && \
+    if [ -d /tmp/pySecureMR-dev/pySecureMR-dev ]; then \
+        mv /tmp/pySecureMR-dev/pySecureMR-dev/* /pySecureMR/; \
+    elif [ -d /tmp/pySecureMR-dev/pySecureMR ]; then \
+        mv /tmp/pySecureMR-dev/pySecureMR/* /pySecureMR/; \
+    else \
+        mv /tmp/pySecureMR-dev/* /pySecureMR/; \
+    fi && \
     cd /pySecureMR && \
-    pip3 install . && \
+    pip3 install --no-build-isolation --no-deps . && \
     rm -rf /tmp/pySecureMR-dev.tar.gz /tmp/pySecureMR-dev
 
 # Add QNN SDK binaries to PATH for global access
@@ -142,3 +157,8 @@ RUN echo "source ${QNN_SDK_ROOT}/bin/envsetup.sh" >> /root/.bashrc && \
 
 # Set working directory inside the container
 WORKDIR /app
+
+# Copy app config files
+RUN mkdir -p /opt/config
+COPY HtpConfigFile.json /opt/config/HtpConfigFile.json
+COPY PerfSetting.conf /opt/config/PerfSetting.conf
