@@ -111,10 +111,9 @@ RUN bash -c ". ${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin/activate && \
     pep8-naming==0.12.1 \
     mypy==0.910"
 
-# Create symbolic link for tflite_runtime inside the virtual environment
 RUN bash -c ". ${QNN_SDK_ROOT}/${MY_ENV_NAME}/bin/activate && \
-    ln -s \$(python -c \"import tflite_runtime; print(tflite_runtime.__path__[0])\") \
-    ${QNN_SDK_ROOT}/${MY_ENV_NAME}/lib/python3.10/site-packages/tflite"
+    python -m pip install --no-cache-dir \
+    --extra-index-url https://google-coral.github.io/py-repo/ tflite_runtime"
 
 # Install Android NDK r26c
 ENV ANDROID_NDK_VERSION=r26c
