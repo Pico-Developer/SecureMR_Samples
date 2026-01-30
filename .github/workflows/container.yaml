@@ -6,14 +6,15 @@ on:
       - release-docker
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      attestations: write
-      id-token: write
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: pico-developer/securemr_tool
