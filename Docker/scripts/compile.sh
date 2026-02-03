@@ -165,6 +165,7 @@ qnn-model-lib-generator -c "${tmp_output}/${name}.cpp" -b "${tmp_output}/${name}
 backend="${QNN_SDK_ROOT}/lib/x86_64-linux-clang/libQnnHtp.so"
 qnn-context-binary-generator --backend "${backend}" \
     --model "${tmp_output}/x86_64-linux-clang/lib${name}.so" --binary_file "${name}.serialized" \
+    --config_file /opt/config/HtpConfigFile.json \
     --output_dir "${tmp_output}"
 #fi
 
