@@ -8,7 +8,7 @@
 | **Mnistwild** | **Rubic's cube** | **Whack-a-Mole** |
 | ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | |
 
-## Models Used in Samples
+## Nerual-Network (NN) Models Used in Samples
 
 | Demo | Model | Source |
 |------|-------|--------|
@@ -16,6 +16,7 @@
 | Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
 | MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
+| Whack-a-Mole |  MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | Rubic's Cube (Solver) | No model used | N/A (Internal) |
 
 ## Project aims
@@ -102,7 +103,13 @@ deploy your own algorithm packages.
 │   ├── rubics_cube
 │   │             A Rubik's Cube scanner and solver with real-time
 │   │             color classification, presenting the step-by-step instructions on
-│   │             the screen. 
+│   │             the screen.
+│   │
+│   ├── whackamole
+│   │             A whack-a-mole MR game, which showcases how to run an NN-based
+│   │             computer-vision (CV) algorithm together with customized JavaScript
+│   │             for post-processing to achieve fancier MR effects, such as collision
+│   │              detection, scoring and user interfaces. 
 │   │
 │   └── model_inspect
 │                 Diagnostic tool for validating serialized models 
