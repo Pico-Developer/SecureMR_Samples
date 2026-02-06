@@ -142,6 +142,7 @@ deploy your own algorithm packages.
      1. `yolo` which contains an object detection demo
      1. `mnistwild` which contains a hand-written digit recognition demo
      1. `readback` which contains a minimal demo showing the usage of the readback APIs
+     1. `whackamodel` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
      1. `rubics_cube` which contains a Rubik's Cube solver demo
      1. `model_inspect` which is a utility for model validation
      1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
