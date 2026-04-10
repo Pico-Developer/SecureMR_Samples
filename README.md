@@ -20,6 +20,7 @@
 | MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
 | Whack-a-Mole |  MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | Rubic's Cube (Solver) | No model used | N/A (Internal) |
+| Stylize | Google arbitrary-image-stylization-v1 (TFLite) | [Kaggle - arbitrary-image-stylization-v1](https://www.kaggle.com/models/google/arbitrary-image-stylization-v1/tfLite) |
 
 ## Project aims
 
@@ -149,7 +150,7 @@ deploy your own algorithm packages.
      1. `mnistwild` which contains a hand-written digit recognition demo
     1. `readback` which contains a minimal demo showing the usage of the readback APIs
     1. `stylize` which contains an artistic stylization demo for the camera feed
-     1. `whackamodel` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
+     1. `whackamole` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
      1. `rubics_cube` which contains a Rubik's Cube solver demo
      1. `model_inspect` which is a utility for model validation
      1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
