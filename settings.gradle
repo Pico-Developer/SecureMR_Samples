@@ -24,4 +24,4 @@ include 'samples:rubics_cube'
 include 'samples:model_inspect'
 include 'samples:readback'
 include 'samples:whackamole'
-
+include 'samples:stylize'

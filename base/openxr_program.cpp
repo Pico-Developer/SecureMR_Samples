@@ -1097,6 +1097,8 @@ struct OpenXrProgram : IOpenXrProgram {
     // Optionally render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be
     // true when the application has focus.
     std::array<XrVector3f*, 2> handDeltas{};
+    std::array<std::optional<XrPosef>, 2> handPoses{};
+    bool buttonPressed = false;
     for (auto hand : {Side::LEFT, Side::RIGHT}) {
       XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
       res = xrLocateSpace(m_input.handSpace[hand], m_appSpace, predictedDisplayTime, &spaceLocation);
@@ -1108,11 +1110,13 @@ struct OpenXrProgram : IOpenXrProgram {
           if (renderControllerCubes) {
             cubes.push_back(Cube{spaceLocation.pose, {scale, scale, scale}});
           }
+          handPoses[hand] = spaceLocation.pose;
 
           if (m_input.handToggle[hand] == InputState::PRESS_DOWN) {
             if (!m_input.toggleStartPosition[hand]) {
               // no recorded pose --- first pressed down
               m_input.toggleStartPosition[hand] = spaceLocation.pose.position;
+              buttonPressed = true;
             }
           } else if (m_input.handToggle[hand] == InputState::RELEASE) {
             if (m_input.toggleStartPosition[hand]) {
@@ -1137,7 +1141,21 @@ struct OpenXrProgram : IOpenXrProgram {
       }
     }
     if (m_secureMrProgram) {
+      const XrPosef* leftPosePtr = handPoses[Side::LEFT] ? &(*handPoses[Side::LEFT]) : nullptr;
+      const XrPosef* rightPosePtr = handPoses[Side::RIGHT] ? &(*handPoses[Side::RIGHT]) : nullptr;
+      m_secureMrProgram->UpdateControllerPose(leftPosePtr, rightPosePtr, m_views.data(), (uint32_t)m_views.size());
       m_secureMrProgram->UpdateHandPose(handDeltas[0], handDeltas[1]);
+      if (buttonPressed) {
+        for (auto hand : {Side::LEFT, Side::RIGHT}) {
+          if (m_input.handToggle[hand] == InputState::PRESS_DOWN && m_input.toggleStartPosition[hand]) {
+            // Check if it was JUST pressed by seeing if toggleStartPosition was set in this frame
+            // The loop above (lines 981-986) sets toggleStartPosition ONLY if it wasn't set.
+            // So if it is set now, and we are in the frame where buttonPressed is true, 
+            // it means it was just pressed.
+            m_secureMrProgram->HandleButtonPress(static_cast<int>(hand));
+          }
+        }
+      }
       // Head motion: compare current view[0] pose with previous
       static bool hasPrevHead = false;
       static XrPosef prevHeadPose{};

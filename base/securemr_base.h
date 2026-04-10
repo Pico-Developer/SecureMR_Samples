@@ -33,7 +33,24 @@ namespace SecureMR {
  */
 class ISecureMR {
  public:
+  /**
+   * Optional per-frame hand motion input expressed as deltas since the last frame.
+   * Use this for gesture-driven interactions that do not require absolute poses.
+   */
   virtual void UpdateHandPose(const XrVector3f* leftHandDelta, const XrVector3f* rightHandDelta) {}
+  /**
+   * Optional per-frame controller pose input in OpenXR space.
+   * Unlike UpdateHandPose, this provides absolute poses for left/right controllers
+   * plus the current views, enabling world-anchored interactions such as placing
+   * or moving content relative to the user’s view.
+   */
+  virtual void UpdateControllerPose(const XrPosef* leftPose, const XrPosef* rightPose, const XrView* views, uint32_t viewCount) {}
+  /**
+   * Optional button input callback. The side parameter (left==0, right==1) identifies which controller
+   * triggered the action; implementations may use -1 to mean "both" or "unspecified"
+   * depending on their input layer.
+   */
+  virtual void HandleButtonPress(int side = -1) {}
   // Optional: per-frame head pose for applications that anchor content in front of the user.
   virtual void UpdateHeadPose(const XrPosef& /*pose*/) {}
   // Optional: head motion hint between frames; deltas are per-frame magnitudes in meters and radians
