@@ -6,7 +6,9 @@
 |:-------------:|:---------------:|:----:|
 | ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
 | **Mnistwild** | **Rubic's cube** | **Whack-a-Mole** |
-| ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | |
+| ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | ![Whack-a-Mole demo](docs/whackamole.gif)|
+| **Stylize** |  |  |
+| ![Stylize demo](docs/stylize.gif) |  |  |
 
 ## Nerual-Network (NN) Models Used in Samples
 
@@ -100,6 +102,10 @@ deploy your own algorithm packages.
 │   │             effects: it simply calls the readback methods to obtain the camera
 │   │             image and save it to local storage. 
 │   │
+│   ├── stylize
+│   │             A stylization demo that applies an artistic filter to the camera feed,
+│   │             showing a live, painterly effect over the scene.
+│   │
 │   ├── rubics_cube
 │   │             A Rubik's Cube scanner and solver with real-time
 │   │             color classification, presenting the step-by-step instructions on
@@ -141,7 +147,8 @@ deploy your own algorithm packages.
      1. `ufo` which contains a face detection demo
      1. `yolo` which contains an object detection demo
      1. `mnistwild` which contains a hand-written digit recognition demo
-     1. `readback` which contains a minimal demo showing the usage of the readback APIs
+    1. `readback` which contains a minimal demo showing the usage of the readback APIs
+    1. `stylize` which contains an artistic stylization demo for the camera feed
      1. `whackamodel` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
      1. `rubics_cube` which contains a Rubik's Cube solver demo
      1. `model_inspect` which is a utility for model validation
