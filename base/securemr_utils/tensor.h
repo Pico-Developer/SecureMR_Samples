@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "adapter.hpp"
-#include "pipeline.h"
 #include "check.h"
 
 namespace SecureMR {

@@ -57,7 +57,16 @@ bool Pipeline::verifyPipelineTensor(const std::shared_ptr<PipelineTensor>& candi
   return candidateTensor != nullptr && candidateTensor->getPipeline().get() == this;
 }
 
-Pipeline::~Pipeline(){CHECK_XRCMD(xrDestroySecureMrPipelinePICO(m_handle))}
+Pipeline::~Pipeline() {
+  // Destructors must not throw. Guard invalid or already-destroyed handles
+  if (xrDestroySecureMrPipelinePICO != nullptr && m_handle != XR_NULL_HANDLE) {
+    const XrResult res = xrDestroySecureMrPipelinePICO(m_handle);
+    if (XR_FAILED(res) && res != XR_ERROR_HANDLE_INVALID) {
+      Log::Write(Log::Level::Warning, Fmt("xrDestroySecureMrPipelinePICO failed: %s", to_string(res)));
+    }
+    m_handle = XR_NULL_HANDLE;
+  }
+}
 
 Pipeline& Pipeline::typeConvert(const std::shared_ptr<PipelineTensor>& src,
                                 const std::shared_ptr<PipelineTensor>& dst) {
@@ -707,6 +716,20 @@ Pipeline& Pipeline::execRenderCommand(const std::shared_ptr<RenderCommand>& comm
   return *this;
 }
 
+Pipeline& Pipeline::debugRenderText(
+    const std::shared_ptr<PipelineTensor>& gltfPlaceholder,
+    const std::variant<std::shared_ptr<PipelineTensor>, std::string>& text,
+    int canvasWidth, int canvasHeight,
+    const std::variant<std::shared_ptr<PipelineTensor>, std::tuple<float, float>>& startPosition,
+    const std::variant<std::shared_ptr<PipelineTensor>, float>& fontSize,
+    const std::variant<std::shared_ptr<PipelineTensor>, std::array<std::array<uint8_t, 4>, 2>>& colors,
+    const std::variant<std::shared_ptr<PipelineTensor>, uint16_t>& textureId) {
+  auto cmd = std::make_shared<RenderCommand_DrawText>(
+      gltfPlaceholder, std::string("en-US"), RenderCommand_DrawText::TypeFaceTypes::MONOSPACE, canvasWidth,
+      canvasHeight, text, startPosition, fontSize, colors, textureId);
+  return execRenderCommand(cmd);
+}
+
 static std::vector<XrSecureMrOperatorIOMapPICO> prepareIoMap(
     const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& tensors,
     const std::unordered_map<std::string, std::string>& aliasing) {
@@ -784,6 +807,38 @@ Pipeline& Pipeline::runAlgorithm(char* algPackageBuf, size_t algPackageSize,
     xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result.second),
                                           result.first.c_str());
   }
+  return *this;
+}
+
+Pipeline& Pipeline::runJavascript(char* javascriptBuf, size_t javascriptSize,
+                                  const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& scriptOperands,
+                                  const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& scriptResults) {
+
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+
+  XrSecureMrOperatorJavascriptPICO jsConfig{
+    .type = XR_TYPE_SECURE_MR_OPERATOR_JAVASCRIPT_PICO,
+    .configText = javascriptBuf,
+    .configLength = static_cast<int32_t>(javascriptSize)
+  };
+
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+            .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+            .operatorInfo = reinterpret_cast<XrSecureMrOperatorBaseHeaderPICO*>(&jsConfig),
+            .operatorType = XR_SECURE_MR_OPERATOR_TYPE_JAVASCRIPT_PICO
+  };
+
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+
+  for (auto& operand : scriptOperands) {
+      xrSetSecureMrOperatorOperandByNamePICO(
+              m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*operand.second), operand.first.c_str());
+  }
+  for (auto& result : scriptResults) {
+      xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result.second),
+                                            result.first.c_str());
+  }
+
   return *this;
 }
 

@@ -88,3 +88,4 @@ lint/tmp/
 *.swp
 
 Makefile
+tmp_*

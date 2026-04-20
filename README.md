@@ -5,14 +5,22 @@
 | Face tracking | Pose estimation | YOLO |
 |:-------------:|:---------------:|:----:|
 | ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
+| **Mnistwild** | **Rubic's cube** | **Whack-a-Mole** |
+| ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | ![Whack-a-Mole demo](docs/whackamole.gif)|
+| **Stylize** |  |  |
+| ![Stylize demo](docs/stylize.gif) |  |  |
 
-## Models Used in Samples
+## Nerual-Network (NN) Models Used in Samples
 
 | Demo | Model | Source |
 |------|-------|--------|
 | UFO (Face Detection) | MediaPipe Face Detection | [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face?searchTerm=face) |
 | Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
+| MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
+| Whack-a-Mole |  MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
+| Rubic's Cube (Solver) | No model used | N/A (Internal) |
+| Stylize | Google arbitrary-image-stylization-v1 (TFLite) | [Kaggle - arbitrary-image-stylization-v1](https://www.kaggle.com/models/google/arbitrary-image-stylization-v1/tfLite) |
 
 ## Project aims
 
@@ -23,9 +31,14 @@ customized MR-based effects with deployment of open-sourced
 machine learning algorithms. 
 
 Additionally, the project provides a set of utility classes,
-located under [`./base/securemr_utils`](base/securemr_utils/README.md)
+located under [`base/securemr_utils`](base/securemr_utils/README.md)
 to simplify your
 development of SecureMR-enabled applications. 
+
+The [`sample/mnist`](samples/mnistwild) also demonstrates how to defines the SecureMR
+pipelines completely in JSON, using which allows your application
+to dynamically load and update pipelines at run time, without hard
+coding the algorithms into the app. 
 
 A docker file together with necessary resources are also 
 contained under the `Docker/` directory, if you would like
@@ -73,10 +86,41 @@ deploy your own algorithm packages.
 ├── samples
 │   │            Directory for all sample projects. 
 │   │         
-│   └── ufo
-│               This is a sample showing a UFO "chasing" the human being
-│               whoever it sees. The sample app uses an open-sourced
-│               face detection model from MediaPipe.  
+│   ├── ufo
+│   │             This is a sample showing a UFO "chasing" the human being
+│   │             whoever it sees. The sample app uses an open-sourced
+│   │             face detection model from MediaPipe.  
+│   │
+│   ├── mnistwild
+│   │             Hand-written digit recognition using a self-trained MNIST-based
+│   │             inference pipeline.
+│   │
+│   ├── readback
+│   │             A minimumal demo that shows the usage of the readback APIs, which
+│   │             allows an app, if proper camera or spatial-data permission(s)
+│   │             is granted, to read the tensor content back from the SecureMR server.
+│   │             This demo does not deploy any algorithms, nor present any render
+│   │             effects: it simply calls the readback methods to obtain the camera
+│   │             image and save it to local storage. 
+│   │
+│   ├── stylize
+│   │             A stylization demo that applies an artistic filter to the camera feed,
+│   │             showing a live, painterly effect over the scene.
+│   │
+│   ├── rubics_cube
+│   │             A Rubik's Cube scanner and solver with real-time
+│   │             color classification, presenting the step-by-step instructions on
+│   │             the screen.
+│   │
+│   ├── whackamole
+│   │             A whack-a-mole MR game, which showcases how to run an NN-based
+│   │             computer-vision (CV) algorithm together with customized JavaScript
+│   │             for post-processing to achieve fancier MR effects, such as collision
+│   │              detection, scoring and user interfaces. 
+│   │
+│   └── model_inspect
+│                 Diagnostic tool for validating serialized models 
+│                 on device.
 |
 └── ...
 ```
@@ -85,7 +129,7 @@ deploy your own algorithm packages.
 
 #### (A) To run the demo, you will need
 
-1. A PICO 4 Ultra device with the latest system update (OS version >= 5.14.0U)
+1. A PICO 4 Ultra device with the latest system update (OS version >= 5.15.0)
 1. Android Studio, with Android NDK installed, suggested NDK version = 25
 1. Gradle and Android Gradle plugin (usually bundled with Android Studio install),
    suggested Gradle version = 8.7, Android Gradle Plugin version = 8.3.2
@@ -99,12 +143,18 @@ deploy your own algorithm packages.
 
 1. Install and configure according to the [prerequisite](#prerequisite). 
 1. Open the repository root in Android Studio, as an Android project
-1. After project sync, you will find there are four modules detected by the Android Studio, all under the `samples` folder: 
-  1. `pose` which contains a pose detection demo
-  1. `ufo` which contains a face detection demo
-  1. `yolo` which contains an object detection demo
-  1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
-      simplification using SecureMR Utils classes. 
+1. After project sync, you will find several modules detected by the Android Studio, all under the `samples` folder: 
+     1. `pose` which contains a pose detection demo
+     1. `ufo` which contains a face detection demo
+     1. `yolo` which contains an object detection demo
+     1. `mnistwild` which contains a hand-written digit recognition demo
+    1. `readback` which contains a minimal demo showing the usage of the readback APIs
+    1. `stylize` which contains an artistic stylization demo for the camera feed
+     1. `whackamole` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
+     1. `rubics_cube` which contains a Rubik's Cube solver demo
+     1. `model_inspect` which is a utility for model validation
+     1. `ufo-origin`, the same demo as `ufo`, but written using direct calls to the OpenXR C-API, with no 
+         simplification using SecureMR Utils classes. 
 1. Connect to a PICO 4 Ultra device with the latest OS update installed
 1. Select the module you want to run, and click the launch button.
 

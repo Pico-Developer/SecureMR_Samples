@@ -1,0 +1,37 @@
+{
+    "model_name": "stylepredict",
+    "path_to_zoo": "stylepredict.serialized.bin",
+    "engine_type": "qnn",
+    "input": [
+        {
+            "name": "style_image",
+            "shape": [
+                1,
+                256,
+                256,
+                3
+            ],
+            "encoding_type": "FP32",
+            "alias_name": "style_image"
+        }
+    ],
+    "output": [
+        {
+            "name": "mobilenet_conv_Conv_BiasAdd",
+            "shape": [
+                1,
+                1,
+                1,
+                100
+            ],
+            "encoding_type": "FP32",
+            "alias_name": "mobilenet_conv_Conv_BiasAdd"
+        }
+    ],
+    "specific_config": {
+        "runtime_order": [
+            "HTP_FIXED8_TF"
+        ],
+        "enable_dynamic_runtime": false
+    }
+}
