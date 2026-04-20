@@ -27,6 +27,7 @@ namespace SecureMR {
 
 class PipelineTensor;
 struct RenderCommand;
+struct RenderCommand_DrawText;
 
 /**
  * Pipeline, an adapter for <code>XrSecureMrPipelinePICO</code> handle. By using the class:
@@ -71,7 +72,7 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
 
  public:
   friend struct RenderCommand;
-
+  
   /**
    * Pipeline must be constructed in association with a FrameworkSession, which performs as the camera provider and
    * the manager for resources.
@@ -160,7 +161,26 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
    * evaluate an arithmetic expression, such as <code>{0} + {1} / 2</code>.
    * Encapsulating operator of type <code>XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO</code>
    * @param expression The arithmetic expression, where you can use <code>{IDX}</code> to refer to the No. IDX
-   *                   operands. We support +, -, *, / and ().
+   *                   operands. We support +, -, *, /, ^, T, inv, sin, cos, tan, asin, acos, atan,
+   *                   sinh, cosh, tanh, (, and), where
+   *                   <code>T</code> means transpose of a matrix,
+   *                   <code>inv</code> means the inverse of a matrix, and
+   *                   <code>^</code> means the exponential of a matrix.
+   *                   For example, you can use the method like:
+   *                   <ul>
+   *                   <li>Linear arithmetic: <code>pipeline.arithmetic("{0}+{1}*2",
+   *                   std::vector{tensor1, tensor2}, result);</code></li>
+   *                   <li>Parentheses： <code>pipeline.arithmetic("({0}+{1})*2",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Complex parentheses <code>pipeline.arithmetic("4.0 - ( ( {0} * {1}) + 2)",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Exponential: <code>pipeline.arithmetic("4.0 - ({0} * {1}) ^ 2",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Inverse: <code>pipeline.arithmetic("4.0 -inv({0} * {1})",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   <li>Transpose: <code>pipeline.arithmetic("4.0 -inv({0} * {1})",
+   *                   std::vector{tensor1, tensor2}, result);<code></li>
+   *                   </ul>
    * @param ops Operands to the arithmetic expression. The usage type of all the operands must be declared as
    *            <code>XR_SECURE_MR_TENSOR_TYPE_MAT_PICO</code>
    * @param result The result from the arithmetic expression, whose usage type must also be
@@ -530,6 +550,35 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
    * @return Reference to this pipeline
    */
   Pipeline& execRenderCommand(const std::shared_ptr<RenderCommand>& command);
+
+  /**
+   * Add to the pipeline an operator that draws debug text onto a texture associated with a glTF object for display.
+   *
+   * The text is rendered using a monospace typeface and the specified canvas size.
+   * Callers may provide most arguments either as immediate values (string, tuple, float,
+   * arrays) or as pipeline tensors to drive the content dynamically at runtime.
+   *
+   * @param gltfPlaceholder Placeholder referring to the target glTF object
+   * @param text The text content to render; either a pipeline tensor (scalar/UTF-8 buffer)
+   *             or a std::string
+   * @param canvasWidth Width of the text canvas in pixels
+   * @param canvasHeight Height of the text canvas in pixels
+   * @param startPosition The start position on the canvas (x,y in [0,1]) as either a 2‑tuple
+   *                      of floats or a pipeline tensor providing the pair
+   * @param fontSize The font size (in pixels) as either a float or a pipeline tensor
+   * @param colors Two RGBA colors used by the renderer (foreground, background), provided either
+   *               as a pipeline tensor or a std::array<std::array<uint8_t,4>,2>
+   * @param textureId The texture ID of the texture belonging to the glTF object to draw into; either a UINT16 pipeline tensor (usage
+   *                  XR_SECURE_MR_TENSOR_TYPE_SCALAR_PICO) or an immediate uint16 value
+   * @return Reference to this pipeline
+   */
+  Pipeline& debugRenderText(const std::shared_ptr<PipelineTensor>& gltfPlaceholder,
+                            const std::variant<std::shared_ptr<PipelineTensor>, std::string>& text,
+                            int canvasWidth, int canvasHeight,
+                            const std::variant<std::shared_ptr<PipelineTensor>, std::tuple<float, float>>& startPosition,
+                            const std::variant<std::shared_ptr<PipelineTensor>, float>& fontSize,
+                            const std::variant<std::shared_ptr<PipelineTensor>, std::array<std::array<uint8_t, 4>, 2>>& colors,
+                            const std::variant<std::shared_ptr<PipelineTensor>, uint16_t>& textureId);
   /**
    * Add a customized algorithm operator the pipeline from a loaded binary algorithm package.
    *
@@ -553,6 +602,24 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
                          const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& algResults,
                          const std::unordered_map<std::string, std::string>& resultAliasing,
                          const std::string& modelName);
+
+  /**
+   * Executes a JavaScript operator inside the pipeline.
+   *
+   * The JavaScript source is provided as a memory buffer. Named operands and results are
+   * mapped to pipeline tensors; names must match the identifiers referenced by the script.
+   * At execution time, operand tensors are made available to the script environment, and
+   * the script writes outputs into the provided result tensors.
+   *
+   * @param javscriptBuf Pointer to a UTF‑8 JavaScript source buffer
+   * @param javascriptSize Size in bytes of the JavaScript source buffer
+   * @param scriptOperands Mapping of operand names to pipeline tensors accessible from the script
+   * @param scriptResults Mapping of result names to pipeline tensors written by the script
+   * @return Reference to this pipeline
+   */
+  Pipeline& runJavascript(char* javscriptBuf, size_t javascriptSize,
+                          const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& scriptOperands,
+                          const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& scriptResults);
 
   /**
    * Submit the pipeline to be executed. The architecture (pipeline tensors, operators) of the pipeline will be frozen

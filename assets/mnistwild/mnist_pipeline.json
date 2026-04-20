@@ -1,0 +1,269 @@
+{
+  "metadata": {
+    "version": 1
+  },
+  "tensors": {
+    "src_points": {
+      "dimensions": [
+        3
+      ],
+      "channels": 2,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 1,
+      "flag": 279042,
+      "value": [
+        1444.0,
+        1332.0,
+        2045.0,
+        1332.0,
+        2045.0,
+        1933.0
+      ]
+    },
+    "dst_points": {
+      "dimensions": [
+        3
+      ],
+      "channels": 2,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 1,
+      "flag": 279042,
+      "value": [
+        0.0,
+        0.0,
+        224.0,
+        0.0,
+        224.0,
+        224.0
+      ]
+    },
+    "affine": {
+      "dimensions": [
+        2,
+        3
+      ],
+      "channels": 1,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 6,
+      "flag": 280577,
+      "value": null
+    },
+    "crop_rgb_tensor": {
+      "dimensions": [
+        224,
+        224
+      ],
+      "channels": 3,
+      "data_type": 1,
+      "is_placeholder": false,
+      "usage": 6,
+      "flag": 71683,
+      "value": null
+    },
+    "crop_gray_tensor": {
+      "dimensions": [
+        224,
+        224
+      ],
+      "channels": 1,
+      "data_type": 1,
+      "is_placeholder": false,
+      "usage": 6,
+      "flag": 71681,
+      "value": null
+    },
+    "crop_float_tensor": {
+      "dimensions": [
+        224,
+        224
+      ],
+      "channels": 1,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 6,
+      "flag": 280577,
+      "value": null
+    },
+    "normalized_input_tensor": {
+      "dimensions": [
+        224,
+        224
+      ],
+      "channels": 1,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 6,
+      "flag": 280577,
+      "value": null
+    },
+    "cropped_image": {
+      "dimensions": [
+        224,
+        224
+      ],
+      "channels": 3,
+      "data_type": 8,
+      "is_placeholder": true,
+      "usage": 8,
+      "flag": 71683,
+      "value": null
+    },
+    "right_rgb": {
+      "dimensions": [
+        2464,
+        3248
+      ],
+      "channels": 3,
+      "data_type": 1,
+      "is_placeholder": false,
+      "usage": 6
+    },
+    "left_rgb": {
+      "dimensions": [
+        2464,
+        3248
+      ],
+      "channels": 3,
+      "data_type": 1,
+      "is_placeholder": false,
+      "usage": 6
+    },
+    "timestamp_tensor": {
+      "dimensions": [
+        1
+      ],
+      "channels": 4,
+      "data_type": 5,
+      "is_placeholder": false,
+      "usage": 5
+    },
+    "camera_matrix_tensor": {
+      "dimensions": [
+        3,
+        3
+      ],
+      "channels": 1,
+      "data_type": 6,
+      "is_placeholder": false,
+      "usage": 6
+    },
+    "predicted_score": {
+      "dimensions": [
+        1
+      ],
+      "channels": 1,
+      "data_type": 6,
+      "is_placeholder": true,
+      "usage": 2
+    },
+    "predicted_class": {
+      "dimensions": [
+        1
+      ],
+      "channels": 1,
+      "data_type": 5,
+      "is_placeholder": true,
+      "usage": 2
+    }
+  },
+  "operators": [
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_RECTIFIED_VST_ACCESS_PICO",
+      "inputs": [],
+      "outputs": [
+        "right_rgb",
+        "left_rgb",
+        "timestamp_tensor",
+        "camera_matrix_tensor"
+      ]
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_GET_AFFINE_PICO",
+      "inputs": [
+        "src_points",
+        "dst_points"
+      ],
+      "outputs": [
+        "affine"
+      ]
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_APPLY_AFFINE_PICO",
+      "inputs": [
+        "affine",
+        "left_rgb"
+      ],
+      "outputs": [
+        "crop_rgb_tensor"
+      ]
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_CONVERT_COLOR_PICO",
+      "inputs": [
+        "crop_rgb_tensor"
+      ],
+      "outputs": [
+        "crop_gray_tensor"
+      ],
+      "flag": 6
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO",
+      "inputs": [
+        "crop_gray_tensor"
+      ],
+      "outputs": [
+        "crop_float_tensor"
+      ]
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO",
+      "inputs": [
+        "crop_float_tensor"
+      ],
+      "outputs": [
+        "normalized_input_tensor"
+      ],
+      "expression": "{0} / 255.0"
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_ASSIGNMENT_PICO",
+      "inputs": [
+        "crop_rgb_tensor"
+      ],
+      "outputs": [
+        "cropped_image"
+      ]
+    },
+    {
+      "type": "XR_SECURE_MR_OPERATOR_TYPE_RUN_MODEL_INFERENCE_PICO",
+      "inputs": [
+        {
+          "name": "input_1",
+          "tensor": "normalized_input_tensor"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "_538",
+          "tensor": "predicted_score"
+        },
+        {
+          "name": "_539",
+          "tensor": "predicted_class"
+        }
+      ],
+      "model_asset": "mnist.serialized.bin",
+      "model_name": "mnist"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    "cropped_image",
+    "predicted_score",
+    "predicted_class"
+  ]
+}

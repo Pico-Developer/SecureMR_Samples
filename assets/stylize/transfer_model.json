@@ -1,0 +1,48 @@
+{
+    "model_name": "styletransfer",
+    "path_to_zoo": "styletransfer.serialized.bin",
+    "engine_type": "qnn",
+    "input": [
+        {
+            "name": "content_image",
+            "shape": [
+                1,
+                384,
+                384,
+                3
+            ],
+            "encoding_type": "FP32",
+            "alias_name": "content_image"
+        },
+        {
+            "name": "mobilenet_conv_Conv_BiasAdd",
+            "shape": [
+                1,
+                1,
+                1,
+                100
+            ],
+            "encoding_type": "FP32",
+            "alias_name": "mobilenet_conv_Conv_BiasAdd"
+        }
+    ],
+    "output": [
+        {
+            "name": "transformer_expand_conv3_conv_Sigmoid",
+            "shape": [
+                1,
+                384,
+                384,
+                3
+            ],
+            "encoding_type": "FP32",
+            "alias_name": "transformer_expand_conv3_conv_Sigmoid"
+        }
+    ],
+    "specific_config": {
+        "runtime_order": [
+            "HTP_FIXED8_TF"
+        ],
+        "enable_dynamic_runtime": false
+    }
+}

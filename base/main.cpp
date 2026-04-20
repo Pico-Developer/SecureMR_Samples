@@ -14,6 +14,7 @@
 #include "openxr_program.h"
 
 AAssetManager* g_assetManager;
+std::string g_internalDataPath;
 
 namespace {
 
@@ -181,6 +182,7 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd) {
   }
 }
 
+android_app* IOpenXrProgram::gapp = nullptr;
 void android_main(struct android_app* app) {
   Log::Write(Log::Level::Error, "=========== main ===========");
   try {
@@ -189,6 +191,12 @@ void android_main(struct android_app* app) {
 
     AAssetManager* assetManager = app->activity->assetManager;
     g_assetManager = assetManager;
+    IOpenXrProgram::gapp = app;
+    if (app->activity->internalDataPath != nullptr) {
+      g_internalDataPath = app->activity->internalDataPath;
+    } else {
+      g_internalDataPath.clear();
+    }
 
     AndroidAppState appState = {};
 
@@ -241,6 +249,7 @@ void android_main(struct android_app* app) {
 
     while (app->destroyRequested == 0) {
       // Read all pending events.
+
       for (;;) {
         int events;
         struct android_poll_source* source;
@@ -258,6 +267,7 @@ void android_main(struct android_app* app) {
         }
       }
 
+      program->TickSecureMr();
       program->PollEvents(&exitRenderLoop, &requestRestart);
       if (exitRenderLoop) {
         ANativeActivity_finish(app->activity);

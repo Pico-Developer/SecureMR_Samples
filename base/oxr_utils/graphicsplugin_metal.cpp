@@ -17,7 +17,7 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
-#include <common/xr_linear.h>
+#include "xr_linear.h"
 #include <simd/simd.h>
 
 struct MetalGraphicsPlugin : public IGraphicsPlugin {

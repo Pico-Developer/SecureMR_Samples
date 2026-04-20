@@ -15,6 +15,7 @@
 // #include "rendercommand.h"
 #include "pipeline.h"
 #include "tensor.h"
+#include "oxr_utils/logger.h"
 
 #include <utility>
 
@@ -185,6 +186,7 @@ PipelineTensor::PipelineTensor(std::shared_ptr<Pipeline> pipeline, TensorAttribu
 
   XrSecureMrTensorFormatPICO format = {
       .dataType = attribute.dataType, .channel = attribute.channels, .tensorType = attribute.usage};
+
   XrSecureMrTensorCreateInfoShapePICO createInfo = {
       .type = XR_TYPE_SECURE_MR_TENSOR_CREATE_INFO_SHAPE_PICO,
       .placeHolder = isPlaceholder,
@@ -229,6 +231,8 @@ std::shared_ptr<PipelineTensor> PipelineTensor::PipelinePlaceholderLike(const st
     return PipelineGLTFPlaceholder(root);
   }
   auto& tensorAttr = std::get<TensorAttribute>(attr);
+
+  Log::Write(Log::Level::Verbose, Fmt("tensorAttr.dataType: %d", tensorAttr.dataType));
   return std::make_shared<PipelineTensor>(root, tensorAttr, true);
 }
 
