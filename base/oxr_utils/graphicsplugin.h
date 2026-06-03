@@ -51,6 +51,8 @@ struct IGraphicsPlugin {
   virtual void UploadRgbaToSwapchainImages(const std::vector<XrSwapchainImageBaseHeader*>& images, int width,
                                            int height, const std::vector<uint8_t>& rgba) {}
 
+  virtual void ReleaseSwapchainImageResources() {}
+
   // Get recommended number of sub-data element samples in view (recommendedSwapchainSampleCount)
   // if supported by the graphics plugin. A supported value otherwise.
   virtual uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView& view) {

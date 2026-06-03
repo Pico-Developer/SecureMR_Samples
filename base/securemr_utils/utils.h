@@ -16,9 +16,11 @@
 #define SECUREMR_UTILS_UTILS_H_
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "serialization.h"
@@ -34,15 +36,44 @@ struct TensorBinding {
   std::shared_ptr<GlobalTensor> global;
 };
 
+struct ModelPackagePipeline {
+  Json manifest;
+  Json modelJson;
+  Json pipelineJson;
+  std::shared_ptr<Pipeline> pipeline;
+  std::unordered_map<std::string, std::shared_ptr<PipelineTensor>> tensorMap;
+  std::unordered_map<std::string, std::shared_ptr<GlobalTensor>> globalTensorMap;
+  std::map<std::shared_ptr<PipelineTensor>, std::shared_ptr<GlobalTensor>> submitBindings;
+  std::vector<std::string> inputs;
+  std::vector<std::string> outputs;
+  std::string detectionTensor;
+};
+
+struct ModelPackagePipelineBundle {
+  Json manifest;
+  Json modelJson;
+  std::unordered_map<std::string, ModelPackagePipeline> pipelines;
+  std::unordered_map<std::string, std::shared_ptr<GlobalTensor>> globalTensorMap;
+  std::string detectionTensor;
+};
+
 class SecureMrUtils {
  public:
   static size_t BytesPerElement(XrSecureMrTensorDataTypePICO dataType);
   static size_t ElementCount(const TensorAttribute& attr);
   static std::optional<Json> LoadModelJson(const std::filesystem::path& jsonPath);
+  static bool LoadAssetToBuffer(const std::string& assetPath, std::vector<char>& out, std::string* outError = nullptr);
+  static std::optional<Json> LoadJsonAsset(const std::string& assetPath, std::string* outError = nullptr);
   static bool PrepareBindings(const Json& jsonSpec,
                               std::vector<TensorBinding>& inputBindings,
                               std::vector<TensorBinding>& outputBindings,
                               std::string& modelName);
+  static bool LoadModelPackagePipelinesFromAssets(
+      const std::string& packageAssetRoot,
+      const std::shared_ptr<FrameworkSession>& session,
+      const std::unordered_map<std::string, std::shared_ptr<GlobalTensor>>& externalGlobals,
+      ModelPackagePipelineBundle& outBundle,
+      std::string& outError);
 };
 
 }  // namespace SecureMR

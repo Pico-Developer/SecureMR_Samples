@@ -15,12 +15,19 @@
 | Demo | Model | Source |
 |------|-------|--------|
 | UFO (Face Detection) | MediaPipe Face Detection | [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face?searchTerm=face) |
+| Face MediaPipe Pipeline | MediaPipe Face Detection | [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face) |
 | Pose (Pose Estimation) | MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | YOLO (Object Detection) | YOLOv11 Detection | [Qualcomm AI Hub - YOLOv11 Detection](https://aihub.qualcomm.com/models/yolov11_det?searchTerm=yolo) |
 | MNIST (Digit Recognition) | Classic MNIST | [MNIST Database](https://en.wikipedia.org/wiki/MNIST_database) |
 | Whack-a-Mole |  MediaPipe Pose Landmarker | [Google AI Edge - Pose Landmark Detection](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker#models) |
 | Rubic's Cube (Solver) | No model used | N/A (Internal) |
 | Stylize | Google arbitrary-image-stylization-v1 (TFLite) | [Kaggle - arbitrary-image-stylization-v1](https://www.kaggle.com/models/google/arbitrary-image-stylization-v1/tfLite) |
+
+## SpatialML Pipeline Zoo
+
+Ready-to-use SpatialML pipeline packages are available in the PICO [SpatialML Pipeline Zoo](https://huggingface.co/collections/picoxr/spatialml-pipeline-zoo) on Hugging Face. These packages bundle serialized models, JSON pipeline definitions, manifests, and related assets so apps can load complete SecureMR pipelines through the utility classes under `base/securemr_utils`.
+
+See the [`face_mediapipe_pipeline`](samples/face_mediapipe_pipeline/README.md) sample for an app that downloads the [Face MediaPipe pipeline package](https://huggingface.co/picoxr/face-mediapipe-pipeline) during the Gradle build and uses `SecureMrUtils::LoadModelPackagePipelinesFromAssets(...)` to construct its detection and display pipelines automatically.
 
 ## Project aims
 
@@ -107,6 +114,11 @@ deploy your own algorithm packages.
 │   │             A stylization demo that applies an artistic filter to the camera feed,
 │   │             showing a live, painterly effect over the scene.
 │   │
+│   ├── face_mediapipe_pipeline
+│   │             A face detection and rendering demo that downloads a SpatialML
+│   │             pipeline zoo package and builds the SecureMR pipelines from JSON
+│   │             package metadata using the utility classes.
+│   │
 │   ├── rubics_cube
 │   │             A Rubik's Cube scanner and solver with real-time
 │   │             color classification, presenting the step-by-step instructions on
@@ -148,8 +160,9 @@ deploy your own algorithm packages.
      1. `ufo` which contains a face detection demo
      1. `yolo` which contains an object detection demo
      1. `mnistwild` which contains a hand-written digit recognition demo
-    1. `readback` which contains a minimal demo showing the usage of the readback APIs
-    1. `stylize` which contains an artistic stylization demo for the camera feed
+     1. `readback` which contains a minimal demo showing the usage of the readback APIs
+     1. `stylize` which contains an artistic stylization demo for the camera feed
+     1. `face_mediapipe_pipeline` which downloads a SpatialML pipeline zoo package and builds the SecureMR pipelines from JSON package metadata
      1. `whackamole` which contains a MR whack-a-mole game, based on pose detection and customized post-processing and game logic implemented in JavaScript
      1. `rubics_cube` which contains a Rubik's Cube solver demo
      1. `model_inspect` which is a utility for model validation

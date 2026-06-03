@@ -780,18 +780,29 @@ Pipeline& Pipeline::runAlgorithm(char* algPackageBuf, size_t algPackageSize,
                                  const std::unordered_map<std::string, std::string>& operandAliasing,
                                  const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& algResults,
                                  const std::unordered_map<std::string, std::string>& resultAliasing,
-                                 const std::string& modelName) {
+                                 const std::string& modelName,
+                                 XrSecureMrModelTypePICO modelType,
+                                 XrSecureMrModelTargetPICO modelTarget,
+                                 int32_t cpuTargetNumThreads) {
   XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
   std::vector<XrSecureMrOperatorIOMapPICO> inputConfigs = prepareIoMap(algOps, operandAliasing);
   std::vector<XrSecureMrOperatorIOMapPICO> outputConfigs = prepareIoMap(algResults, resultAliasing);
+  XrSecureMrOperatorLiteRtModelPICO liteRtConfig{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_LITE_RT_MODEL_PICO,
+      .modelTarget = modelTarget,
+      .cpuTargetNumThreads = cpuTargetNumThreads,
+  };
   XrSecureMrOperatorModelPICO algConfig{.type = XR_TYPE_SECURE_MR_OPERATOR_MODEL_PICO,
+                                        .next = modelType == XR_SECURE_MR_MODEL_TYPE_LITE_RT_MODEL_PICO
+                                                    ? reinterpret_cast<const void*>(&liteRtConfig)
+                                                    : nullptr,
                                         .modelInputCount = static_cast<uint32_t>(inputConfigs.size()),
                                         .modelInputs = inputConfigs.data(),
                                         .modelOutputCount = static_cast<uint32_t>(outputConfigs.size()),
                                         .modelOutputs = outputConfigs.data(),
                                         .bufferSize = static_cast<uint32_t>(algPackageSize),
                                         .buffer = algPackageBuf,
-                                        .modelType = XR_SECURE_MR_MODEL_TYPE_QNN_CONTEXT_BINARY_PICO,
+                                        .modelType = modelType,
                                         .modelName = modelName.c_str()};
   XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
       .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,

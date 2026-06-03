@@ -15,6 +15,8 @@
 #include "securemr_utils/serialization.h"
 
 #include <fstream>
+#include <algorithm>
+#include <cctype>
 #include <limits>
 #include <numeric>
 #include <optional>
@@ -25,6 +27,7 @@
 #include "oxr_utils/common.h"
 #include "oxr_utils/logger.h"
 #include "pipeline.h"
+#include "rendercommand.h"
 #include "tensor.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
@@ -33,6 +36,184 @@ extern AAssetManager* g_assetManager;
 #endif
 
 namespace SecureMR {
+
+namespace {
+
+std::string ToLower(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value;
+}
+
+std::string Trim(const std::string& value) {
+  const auto first = value.find_first_not_of(" \t\n\r");
+  if (first == std::string::npos) {
+    return {};
+  }
+  const auto last = value.find_last_not_of(" \t\n\r");
+  return value.substr(first, last - first + 1);
+}
+
+XrSecureMrTensorDataTypePICO ParseDataType(
+    const Json& value,
+    XrSecureMrTensorDataTypePICO defaultType = XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO) {
+  if (value.is_number_integer()) {
+    return static_cast<XrSecureMrTensorDataTypePICO>(value.get<int>());
+  }
+  if (!value.is_string()) {
+    return defaultType;
+  }
+  const std::string type = ToLower(value.get<std::string>());
+  if (type == "float32" || type == "fp32") return XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO;
+  if (type == "float64" || type == "double") return XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT64_PICO;
+  if (type == "int32") return XR_SECURE_MR_TENSOR_DATA_TYPE_INT32_PICO;
+  if (type == "int16") return XR_SECURE_MR_TENSOR_DATA_TYPE_INT16_PICO;
+  if (type == "int8") return XR_SECURE_MR_TENSOR_DATA_TYPE_INT8_PICO;
+  if (type == "uint16") return XR_SECURE_MR_TENSOR_DATA_TYPE_UINT16_PICO;
+  if (type == "uint8") return XR_SECURE_MR_TENSOR_DATA_TYPE_UINT8_PICO;
+  return defaultType;
+}
+
+bool JsonToSpecialTensorAttribute(const Json& j, TensorAttribute& out) {
+  auto typeIt = j.find("tensor_type");
+  if (typeIt == j.end() || !typeIt->is_string()) {
+    return false;
+  }
+  const std::string tensorType = ToLower(typeIt->get<std::string>());
+  const size_t size = j.value("size", 1);
+  const auto dataTypeIt = j.find("data_type");
+  const XrSecureMrTensorDataTypePICO dataType =
+      dataTypeIt == j.end() ? XR_SECURE_MR_TENSOR_DATA_TYPE_FLOAT32_PICO : ParseDataType(*dataTypeIt);
+
+  if (tensorType == "scalar_array") {
+    out = TensorAttribute_ScalarArray{.size = size, .dataType = dataType};
+    return true;
+  }
+  if (tensorType == "point2_array") {
+    out = TensorAttribute_Point2Array{.size = size, .dataType = dataType};
+    return true;
+  }
+  if (tensorType == "point3_array") {
+    out = TensorAttribute_Point3Array{.size = size, .dataType = dataType};
+    return true;
+  }
+  if (tensorType == "rgba_array") {
+    out = TensorAttribute_RGBA_Array{.size = size};
+    return true;
+  }
+  if (tensorType == "timestamp") {
+    out = TensorAttribute_TimeStamp{};
+    return true;
+  }
+  return false;
+}
+
+struct TensorReference {
+  std::shared_ptr<PipelineTensor> tensor;
+  std::optional<PipelineTensor::Slice> slice;
+};
+
+TensorReference ResolveTensorReference(
+    const std::string& expression,
+    const std::function<std::shared_ptr<PipelineTensor>(const std::string&)>& requireTensor) {
+  const std::string ref = Trim(expression);
+  const auto open = ref.find('[');
+  if (open == std::string::npos) {
+    return {.tensor = requireTensor(ref), .slice = std::nullopt};
+  }
+  if (ref.empty() || ref.back() != ']') {
+    throw std::runtime_error(Fmt("malformed tensor reference '%s'", expression.c_str()));
+  }
+
+  const std::string tensorName = Trim(ref.substr(0, open));
+  auto tensor = requireTensor(tensorName);
+  const std::string sliceSpec = ref.substr(open + 1, ref.size() - open - 2);
+  if (sliceSpec.find(':') == std::string::npos && sliceSpec.find(',') == std::string::npos) {
+    return {.tensor = tensor, .slice = (*tensor)[std::stoi(Trim(sliceSpec))]};
+  }
+
+  std::vector<std::vector<int>> dims;
+  size_t start = 0;
+  while (start <= sliceSpec.size()) {
+    const size_t comma = sliceSpec.find(',', start);
+    const std::string part =
+        Trim(sliceSpec.substr(start, comma == std::string::npos ? std::string::npos : comma - start));
+    std::vector<int> values;
+    size_t partStart = 0;
+    while (partStart <= part.size()) {
+      const size_t colon = part.find(':', partStart);
+      const std::string number =
+          Trim(part.substr(partStart, colon == std::string::npos ? std::string::npos : colon - partStart));
+      values.push_back(std::stoi(number));
+      if (colon == std::string::npos) break;
+      partStart = colon + 1;
+    }
+    dims.push_back(values);
+    if (comma == std::string::npos) break;
+    start = comma + 1;
+  }
+  return {.tensor = tensor, .slice = (*tensor)[dims]};
+}
+
+Pipeline::ElementwiseOp ParseElementwiseOp(const std::string& op) {
+  const std::string value = ToLower(op);
+  if (value == "min") return Pipeline::ElementwiseOp::MIN;
+  if (value == "max") return Pipeline::ElementwiseOp::MAX;
+  if (value == "multiply" || value == "mul") return Pipeline::ElementwiseOp::MULTIPLY;
+  if (value == "or") return Pipeline::ElementwiseOp::OR;
+  if (value == "and") return Pipeline::ElementwiseOp::AND;
+  throw std::runtime_error(Fmt("unsupported elementwise op '%s'", op.c_str()));
+}
+
+XrSecureMrComparisonPICO ParseComparison(const std::string& compare) {
+  const std::string value = ToLower(compare);
+  if (value == ">" || value == "gt") return XR_SECURE_MR_COMPARISON_LARGER_THAN_PICO;
+  if (value == ">=" || value == "ge") return XR_SECURE_MR_COMPARISON_LARGER_OR_EQUAL_PICO;
+  if (value == "<" || value == "lt") return XR_SECURE_MR_COMPARISON_SMALLER_THAN_PICO;
+  if (value == "<=" || value == "le") return XR_SECURE_MR_COMPARISON_SMALLER_OR_EQUAL_PICO;
+  if (value == "==" || value == "eq") return XR_SECURE_MR_COMPARISON_EQUAL_TO_PICO;
+  if (value == "!=" || value == "ne") return XR_SECURE_MR_COMPARISON_NOT_EQUAL_PICO;
+  throw std::runtime_error(Fmt("unsupported comparison '%s'", compare.c_str()));
+}
+
+XrSecureMrModelTypePICO ParseModelType(const std::string& modelType) {
+  const std::string value = ToLower(modelType);
+  if (value.empty() || value == "qnn" || value == "qnn_context_binary" || value == "qnn_context_binary_pico" ||
+      value == "qnn_context" || value == "xr_secure_mr_model_type_qnn_context_binary_pico") {
+    return XR_SECURE_MR_MODEL_TYPE_QNN_CONTEXT_BINARY_PICO;
+  }
+  if (value == "litert" || value == "lite_rt" || value == "lite_rt_model" || value == "tflite" ||
+      value == "tensorflow_lite" || value == "xr_secure_mr_model_type_lite_rt_model_pico") {
+    return XR_SECURE_MR_MODEL_TYPE_LITE_RT_MODEL_PICO;
+  }
+  throw std::runtime_error(Fmt("unsupported model_type '%s'", modelType.c_str()));
+}
+
+XrSecureMrModelTargetPICO ParseModelTarget(const std::string& modelTarget) {
+  const std::string value = ToLower(modelTarget);
+  if (value.empty() || value == "npu" || value == "xr_secure_mr_model_target_npu_pico") {
+    return XR_SECURE_MR_MODEL_TARGET_NPU_PICO;
+  }
+  if (value == "gpu" || value == "xr_secure_mr_model_target_gpu_pico") {
+    return XR_SECURE_MR_MODEL_TARGET_GPU_PICO;
+  }
+  if (value == "cpu" || value == "xr_secure_mr_model_target_cpu_pico") {
+    return XR_SECURE_MR_MODEL_TARGET_CPU_PICO;
+  }
+  throw std::runtime_error(Fmt("unsupported model_target '%s'", modelTarget.c_str()));
+}
+
+RenderCommand_DrawText::TypeFaceTypes ParseTypeFace(const std::string& value) {
+  const std::string typeface = ToLower(value);
+  if (typeface == "sans_serif" || typeface == "sans-serif") return RenderCommand_DrawText::TypeFaceTypes::SANS_SERIF;
+  if (typeface == "serif") return RenderCommand_DrawText::TypeFaceTypes::SERIF;
+  if (typeface == "monospace") return RenderCommand_DrawText::TypeFaceTypes::MONOSPACE;
+  if (typeface == "bold") return RenderCommand_DrawText::TypeFaceTypes::BOLD;
+  if (typeface == "italic") return RenderCommand_DrawText::TypeFaceTypes::ITALIC;
+  return RenderCommand_DrawText::TypeFaceTypes::DEFAULT;
+}
+
+}  // namespace
 
 Json TensorAttributeToJson(const TensorAttribute& attr) {
   Json j;
@@ -98,6 +279,9 @@ bool WriteJsonToFile(const std::filesystem::path& filePath, const Json& spec) {
 }
 
 bool JsonToTensorAttribute(const Json& j, TensorAttribute& out) {
+  if (JsonToSpecialTensorAttribute(j, out)) {
+    return true;
+  }
   if (j.find("dimensions") == j.end() || j.find("channels") == j.end() || j.find("usage") == j.end() ||
       j.find("data_type") == j.end()) {
     return false;
@@ -220,6 +404,18 @@ std::string FormatOperatorType(const std::string& typeName) {
       {"XR_SECURE_MR_OPERATOR_TYPE_ARITHMETIC_COMPOSE_PICO", "arithmetic"},
       {"run_algorithm", "run_algorithm"},
       {"XR_SECURE_MR_OPERATOR_TYPE_RUN_MODEL_INFERENCE_PICO", "run_algorithm"},
+      {"javascript", "javascript"},
+      {"run_javascript", "javascript"},
+      {"XR_SECURE_MR_OPERATOR_TYPE_JAVASCRIPT_PICO", "javascript"},
+      {"elementwise", "elementwise"},
+      {"uv2_cam", "uv2_cam"},
+      {"uv_to_3d", "uv2_cam"},
+      {"transform", "transform"},
+      {"cam_space_to_xr_local", "cam_space_to_xr_local"},
+      {"camera_space_to_world", "cam_space_to_xr_local"},
+      {"compare_to", "compare_to"},
+      {"draw_text", "draw_text"},
+      {"render_gltf", "render_gltf"},
   };
 
   if (auto it = kAliases.find(typeName); it != kAliases.end()) {
@@ -251,11 +447,17 @@ bool DeserializePipelineFromJson(const Json& spec,
     const std::string tensorName = it.key();
     const Json& tensorSpec = *it;
     const bool isPlaceholder = tensorSpec.value("is_placeholder", false);
-    const bool isGltf = tensorSpec.value("is_gltf", false);
+    const bool isGltf = tensorSpec.value("is_gltf", false) ||
+                        (tensorSpec.contains("tensor_type") && tensorSpec["tensor_type"].is_string() &&
+                         ToLower(tensorSpec["tensor_type"].get<std::string>()) == "gltf");
     std::shared_ptr<PipelineTensor> tensor;
     TensorAttribute attr{};
     try {
-      if (isPlaceholder && isGltf) {
+      if (isGltf) {
+        if (!isPlaceholder) {
+          outError = Fmt("glTF tensor '%s' requires is_placeholder=true", tensorName.c_str());
+          return false;
+        }
         tensor = PipelineTensor::PipelineGLTFPlaceholder(pipeline);
       } else {
         if (!JsonToTensorAttribute(tensorSpec, attr)) {
@@ -483,8 +685,17 @@ bool DeserializePipelineFromJson(const Json& spec,
         if (inputs.empty() || outputs.empty()) {
           throw std::runtime_error("assignment requires input and output tensors");
         }
-        pipeline->assignment(requireByIndex(inputs, 0, "assignment input"),
-                             requireByIndex(outputs, 0, "assignment output"));
+        const auto srcRef = ResolveTensorReference(inputs[0], requireTensor);
+        const auto dstRef = ResolveTensorReference(outputs[0], requireTensor);
+        if (srcRef.slice.has_value() && dstRef.slice.has_value()) {
+          pipeline->assignment(*srcRef.slice, *dstRef.slice);
+        } else if (srcRef.slice.has_value()) {
+          pipeline->assignment(*srcRef.slice, dstRef.tensor);
+        } else if (dstRef.slice.has_value()) {
+          pipeline->assignment(srcRef.tensor, *dstRef.slice);
+        } else {
+          pipeline->assignment(srcRef.tensor, dstRef.tensor);
+        }
       } else if (type == "cvt_color") {
         const int flag = opSpec.value("flag", 0);
         if (inputs.empty() || outputs.empty()) {
@@ -509,6 +720,48 @@ bool DeserializePipelineFromJson(const Json& spec,
           throw std::runtime_error("arithmetic requires output tensor");
         }
         pipeline->arithmetic(expression, operands, requireByIndex(outputs, 0, "arithmetic output"));
+      } else if (type == "elementwise") {
+        if (inputs.size() < 2 || outputs.empty()) {
+          throw std::runtime_error("elementwise requires two inputs and one output");
+        }
+        pipeline->elementwise(ParseElementwiseOp(opSpec.value("op", "")),
+                              {requireByIndex(inputs, 0, "elementwise input"),
+                               requireByIndex(inputs, 1, "elementwise input")},
+                              requireByIndex(outputs, 0, "elementwise output"));
+      } else if (type == "uv2_cam") {
+        if (inputs.size() < 5 || outputs.empty()) {
+          throw std::runtime_error("uv2_cam requires uv, timestamp, camera matrix, left image, right image and output");
+        }
+        pipeline->uv2Cam(requireByIndex(inputs, 0, "uv2_cam input"), requireByIndex(inputs, 1, "uv2_cam input"),
+                         requireByIndex(inputs, 2, "uv2_cam input"), requireByIndex(inputs, 3, "uv2_cam input"),
+                         requireByIndex(inputs, 4, "uv2_cam input"), requireByIndex(outputs, 0, "uv2_cam output"));
+      } else if (type == "transform") {
+        if (inputs.size() < 3 || outputs.empty()) {
+          throw std::runtime_error("transform requires rotation, translation, scale and output");
+        }
+        pipeline->transform(requireByIndex(inputs, 0, "transform input"), requireByIndex(inputs, 1, "transform input"),
+                            requireByIndex(inputs, 2, "transform input"), requireByIndex(outputs, 0, "transform output"));
+      } else if (type == "cam_space_to_xr_local") {
+        if (inputs.empty() || outputs.empty()) {
+          throw std::runtime_error("cam_space_to_xr_local requires timestamp input and at least one output");
+        }
+        const std::string eye = ToLower(opSpec.value("eye", "left"));
+        if (eye == "right") {
+          pipeline->camSpace2XrLocal(requireByIndex(inputs, 0, "cam_space_to_xr_local input"),
+                                     requireByIndex(outputs, 0, "cam_space_to_xr_local output"), nullptr);
+        } else {
+          pipeline->camSpace2XrLocal(requireByIndex(inputs, 0, "cam_space_to_xr_local input"), nullptr,
+                                     requireByIndex(outputs, 0, "cam_space_to_xr_local output"));
+        }
+      } else if (type == "compare_to") {
+        if (inputs.size() < 2 || outputs.empty()) {
+          throw std::runtime_error("compare_to requires two inputs and one output");
+        }
+        PipelineTensor::Compare compare;
+        compare.left = requireByIndex(inputs, 0, "compare_to input");
+        compare.right = requireByIndex(inputs, 1, "compare_to input");
+        compare.comparison = ParseComparison(opSpec.value("compare", ""));
+        pipeline->compareTo(compare, requireByIndex(outputs, 0, "compare_to output"));
       } else if (type == "run_algorithm") {
         // Parse mapped inputs/outputs
         auto mappedInputs = ParseMappedTensorList(opSpec.value("inputs", Json::array()));
@@ -586,8 +839,67 @@ bool DeserializePipelineFromJson(const Json& spec,
           }
         }
 
+        const XrSecureMrModelTypePICO modelType = ParseModelType(opSpec.value("model_type", "qnn"));
+        const XrSecureMrModelTargetPICO modelTarget = ParseModelTarget(opSpec.value("model_target", "npu"));
+        const int32_t cpuTargetNumThreads = opSpec.value("cpu_target_num_threads", 1);
         pipeline->runAlgorithm(modelBuffer.data(), modelBuffer.size(), inputMap, operandAliasing, outputMap,
-                               resultAliasing, modelName);
+                               resultAliasing, modelName, modelType, modelTarget, cpuTargetNumThreads);
+      } else if (type == "javascript") {
+        auto mappedInputs = ParseMappedTensorList(opSpec.value("inputs", Json::array()));
+        auto mappedOutputs = ParseMappedTensorList(opSpec.value("outputs", Json::array()));
+        if (mappedOutputs.empty()) {
+          throw std::runtime_error("javascript outputs malformed");
+        }
+
+        std::unordered_map<std::string, std::shared_ptr<PipelineTensor>> scriptOperands;
+        for (const auto& [alias, tensorName] : mappedInputs) {
+          scriptOperands.emplace(alias, requireTensor(tensorName));
+        }
+        std::unordered_map<std::string, std::shared_ptr<PipelineTensor>> scriptResults;
+        for (const auto& [alias, tensorName] : mappedOutputs) {
+          scriptResults.emplace(alias, requireTensor(tensorName));
+        }
+
+        std::string script = opSpec.value("script", "");
+        if (script.empty()) {
+          auto attrsIt = opSpec.find("attrs");
+          if (attrsIt != opSpec.end() && attrsIt->is_array() && !attrsIt->empty() && (*attrsIt)[0].is_string()) {
+            script = (*attrsIt)[0].get<std::string>();
+          }
+        }
+        if (script.empty()) {
+          throw std::runtime_error("javascript requires 'script'");
+        }
+        pipeline->runJavascript(script.data(), script.size(), scriptOperands, scriptResults);
+      } else if (type == "draw_text") {
+        const std::string gltf = opSpec.value("gltf", "");
+        const std::string text = opSpec.value("text", "");
+        const std::string start = opSpec.value("start", "");
+        const std::string fontSize = opSpec.value("font_size", "");
+        const std::string colors = opSpec.value("colors", "");
+        const std::string textureId = opSpec.value("texture_id", "");
+        if (gltf.empty() || text.empty() || start.empty() || fontSize.empty() || colors.empty() || textureId.empty()) {
+          throw std::runtime_error("draw_text requires gltf, text, start, font_size, colors and texture_id");
+        }
+        pipeline->execRenderCommand(std::make_shared<RenderCommand_DrawText>(
+            requireTensor(gltf), opSpec.value("language_and_locale", "en-US"),
+            ParseTypeFace(opSpec.value("typeface", "default")), opSpec.value("canvas_width", 256),
+            opSpec.value("canvas_height", 64), requireTensor(text), requireTensor(start), requireTensor(fontSize),
+            requireTensor(colors), requireTensor(textureId)));
+      } else if (type == "render_gltf") {
+        const std::string gltf = opSpec.value("gltf", "");
+        const std::string pose = opSpec.value("pose", "");
+        if (gltf.empty() || pose.empty()) {
+          throw std::runtime_error("render_gltf requires gltf and pose");
+        }
+        auto command = std::make_shared<RenderCommand_Render>();
+        command->gltfTensor = requireTensor(gltf);
+        command->pose = requireTensor(pose);
+        command->viewLocked = opSpec.value("view_locked", false);
+        if (auto visibleIt = opSpec.find("visible"); visibleIt != opSpec.end() && visibleIt->is_string()) {
+          command->visible = requireTensor(visibleIt->get<std::string>());
+        }
+        pipeline->execRenderCommand(command);
       } else {
         bool handled = false;
         if (options.customOperatorHandler) {

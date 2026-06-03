@@ -103,6 +103,15 @@ struct OpenXrProgram : IOpenXrProgram {
         m_acceptableBlendModes{XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND} {}
 
   ~OpenXrProgram() override {
+    if (m_graphicsPlugin != nullptr) {
+      m_graphicsPlugin->ReleaseSwapchainImageResources();
+    }
+
+    if (m_overlaySwapchain.handle != XR_NULL_HANDLE) {
+      xrDestroySwapchain(m_overlaySwapchain.handle);
+      m_overlaySwapchain.handle = XR_NULL_HANDLE;
+    }
+
     if (m_input.actionSet != XR_NULL_HANDLE) {
       for (auto hand : {Side::LEFT, Side::RIGHT}) {
         xrDestroySpace(m_input.handSpace[hand]);

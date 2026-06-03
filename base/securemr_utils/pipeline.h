@@ -601,7 +601,10 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
                          const std::unordered_map<std::string, std::string>& operandAliasing,
                          const std::unordered_map<std::string, std::shared_ptr<PipelineTensor>>& algResults,
                          const std::unordered_map<std::string, std::string>& resultAliasing,
-                         const std::string& modelName);
+                         const std::string& modelName,
+                         XrSecureMrModelTypePICO modelType = XR_SECURE_MR_MODEL_TYPE_QNN_CONTEXT_BINARY_PICO,
+                         XrSecureMrModelTargetPICO modelTarget = XR_SECURE_MR_MODEL_TARGET_NPU_PICO,
+                         int32_t cpuTargetNumThreads = 1);
 
   /**
    * Executes a JavaScript operator inside the pipeline.

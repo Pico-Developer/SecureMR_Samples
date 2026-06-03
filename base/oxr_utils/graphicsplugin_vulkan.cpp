@@ -303,7 +303,7 @@ struct CmdBuffer {
 
   bool Wait() {
     // Waiting on a not-in-flight command buffer is a no-op
-    if (state == CmdBufferState::Initialized) {
+    if (state == CmdBufferState::Initialized || state == CmdBufferState::Executable) {
       return true;
     }
 
@@ -606,6 +606,10 @@ struct RenderPass {
   }
 
   ~RenderPass() {
+    Release();
+  }
+
+  void Release() {
     if (m_vkDevice != nullptr) {
       if (pass != VK_NULL_HANDLE) {
         vkDestroyRenderPass(m_vkDevice, pass, nullptr);
@@ -940,6 +944,10 @@ struct DepthBuffer {
   DepthBuffer() = default;
 
   ~DepthBuffer() {
+    Release();
+  }
+
+  void Release() {
     if (m_vkDevice != nullptr) {
       if (depthImage != VK_NULL_HANDLE) {
         vkDestroyImage(m_vkDevice, depthImage, nullptr);
@@ -1046,6 +1054,20 @@ struct SwapchainImageContext {
   XrStructureType swapchainImageType;
 
   SwapchainImageContext() = default;
+
+  ~SwapchainImageContext() { Release(); }
+
+  void Release() {
+    renderTarget.clear();
+    pipeLoad.Release();
+    pipe.Release();
+    rpLoad.Release();
+    rp.Release();
+    depthBuffer.Release();
+    swapchainImages.clear();
+    m_vkDevice = VK_NULL_HANDLE;
+    m_namer = {};
+  }
 
   std::vector<XrSwapchainImageBaseHeader*> Create(const VulkanDebugObjectNamer& namer, VkDevice device,
                                                   MemoryAllocator* memAllocator, uint32_t capacity,
@@ -1926,6 +1948,17 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
     vkDestroyBuffer(m_vkDevice, stagingBuf, nullptr);
     vkFreeMemory(m_vkDevice, stagingMem, nullptr);
+  }
+
+  void ReleaseSwapchainImageResources() override {
+    if (m_vkDevice != VK_NULL_HANDLE) {
+      vkDeviceWaitIdle(m_vkDevice);
+    }
+    m_swapchainImageContextMap.clear();
+    for (auto& context : m_swapchainImageContexts) {
+      context.Release();
+    }
+    m_swapchainImageContexts.clear();
   }
 
  protected:
