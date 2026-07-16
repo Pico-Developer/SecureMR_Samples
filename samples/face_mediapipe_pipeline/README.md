@@ -2,6 +2,8 @@
 
 This sample demonstrates how to run a prebuilt SpatialML pipeline package from the PICO pipeline zoo. Instead of hard-coding every SecureMR tensor and operator in C++, the app downloads a package that contains the model, JSON pipeline definitions, manifest metadata, and glTF assets, then uses the SecureMR utility loaders to build and run the pipelines automatically.
 
+![Face MediaPipe Pipeline demo](face_mediapipe_pipeline.gif)
+
 ## Pipeline zoo package
 
 PICO publishes ready-to-use SpatialML pipeline packages in the pipeline zoo on Hugging Face:
@@ -66,3 +68,5 @@ Build or install the sample normally; if the package assets are not already pres
 ```
 
 Then launch **Face MediaPipe Pipeline** on a supported PICO device with SecureMR support.
+
+When the sample is running, look toward a face in the VST camera view. The app should detect the face and render the packaged glTF face-frame overlay aligned with the detected face. As the face moves, the overlay should follow the face in real time, showing that the downloaded detection and display pipelines are both running successfully.

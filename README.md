@@ -7,8 +7,8 @@
 | ![Face tracking Demo](docs/Demo-UFO.gif) | ![Pose estimation demo](docs/Demo-Pose.gif) | ![YOLO demo](docs/Demo-YOLO.gif) |
 | **Mnistwild** | **Rubic's cube** | **Whack-a-Mole** |
 | ![Mnistwild demo](docs/mnistwild.gif) | ![Rubics cube demo](docs/rubics_cube.gif) | ![Whack-a-Mole demo](docs/whackamole.gif)|
-| **Stylize** |  |  |
-| ![Stylize demo](docs/stylize.gif) |  |  |
+| **Stylize** | **MediaPipe Face Pipeline** |  |
+| ![Stylize demo](docs/stylize.gif) | ![MediaPipe Face Pipeline demo](docs/face_mediapipe_pipeline.gif) |  |
 
 ## Nerual-Network (NN) Models Used in Samples
 
