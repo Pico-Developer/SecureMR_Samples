@@ -9,19 +9,19 @@ This sample demonstrates how to run a prebuilt SpatialML pipeline package from t
 PICO publishes ready-to-use SpatialML pipeline packages in the pipeline zoo on Hugging Face:
 
 - [SpatialML Pipeline Zoo collection](https://huggingface.co/collections/picoxr/spatialml-pipeline-zoo)
-- [Face MediaPipe pipeline package](https://huggingface.co/picoxr/face-mediapipe-pipeline)
+- [Face MediaPipe pipeline package](https://huggingface.co/picoxr/xr-face-mediapipe-pipeline)
 
 The face detector model used by this package is based on [Qualcomm AI Hub - MediaPipe Face Detection](https://aihub.qualcomm.com/models/mediapipe_face).
 
 Optionally, the Gradle build can download the Face MediaPipe package automatically from Hugging Face and unpack it into the app assets directory:
 
 ```
-samples/face_mediapipe_pipeline/src/main/assets/face-mediapipe-pipeline/
+samples/face_mediapipe_pipeline/src/main/assets/xr-face-mediapipe-pipeline/
 ```
 
 The downloaded package is intentionally ignored by git because it is fetched from Hugging Face during the build when needed.
 
-If you are not using the Gradle download task, download the package zip from the [Face MediaPipe pipeline package](https://huggingface.co/picoxr/face-mediapipe-pipeline), extract it, and place the extracted `face-mediapipe-pipeline` folder under:
+If you are not using the Gradle download task, download the package zip from the [Face MediaPipe pipeline package](https://huggingface.co/picoxr/xr-face-mediapipe-pipeline), extract it, and place the extracted `xr-face-mediapipe-pipeline` folder under:
 
 ```
 samples/face_mediapipe_pipeline/src/main/assets/
@@ -30,13 +30,13 @@ samples/face_mediapipe_pipeline/src/main/assets/
 The native code points to this asset folder by relative path:
 
 ```cpp
-constexpr const char* kModelPackageAssetPath = "face-mediapipe-pipeline";
+constexpr const char* kModelPackageAssetPath = "xr-face-mediapipe-pipeline";
 ```
 
 The package contains the files needed to describe and run the complete pipeline:
 
 ```
-face-mediapipe-pipeline/
+xr-face-mediapipe-pipeline/
 ├── manifest.json
 ├── gltf/
 │   └── frame.gltf
@@ -52,7 +52,7 @@ The `manifest.json` names the available pipelines, model files, and runtime meta
 
 ## How the sample uses the package
 
-At runtime, the sample calls `SecureMrUtils::LoadModelPackagePipelinesFromAssets(...)` with the asset root `face-mediapipe-pipeline`. The utility reads the package `manifest.json`, loads the referenced pipeline JSON files, patches model operators to use the packaged serialized model, creates shared global tensor bindings between the detection and display pipelines, and binds packaged glTF assets through pipeline placeholders.
+At runtime, the sample calls `SecureMrUtils::LoadModelPackagePipelinesFromAssets(...)` with the asset root `xr-face-mediapipe-pipeline`. The utility reads the package `manifest.json`, loads the referenced pipeline JSON files, patches model operators to use the packaged serialized model, creates shared global tensor bindings between the detection and display pipelines, and binds packaged glTF assets through pipeline placeholders.
 
 The app then submits two pipelines in sequence:
 

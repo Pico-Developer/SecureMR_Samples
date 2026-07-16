@@ -9,7 +9,7 @@
 namespace {
 constexpr int kCameraWidth = 580;
 constexpr int kCameraHeight = 326;
-constexpr const char* kModelPackageAssetPath = "face-mediapipe-pipeline";
+constexpr const char* kModelPackageAssetPath = "xr-face-mediapipe-pipeline";
 constexpr auto kPipelineSubmitInterval = std::chrono::milliseconds(50);
 
 }  // namespace

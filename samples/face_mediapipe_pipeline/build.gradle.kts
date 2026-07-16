@@ -3,9 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val faceMediaPipePipelineUrl = "https://huggingface.co/picoxr/face-mediapipe-pipeline/resolve/main/face-mediapipe-pipeline.zip?download=true"
-val faceMediaPipePipelineAssetDir = layout.projectDirectory.dir("src/main/assets/face-mediapipe-pipeline")
-val faceMediaPipePipelineZip = layout.buildDirectory.file("downloads/face-mediapipe-pipeline.zip")
+val faceMediaPipePipelineUrl = "https://huggingface.co/picoxr/xr-face-mediapipe-pipeline/resolve/main/xr-face-mediapipe-pipeline.zip?download=true"
+val faceMediaPipePipelineAssetDir = layout.projectDirectory.dir("src/main/assets/xr-face-mediapipe-pipeline")
+val faceMediaPipePipelineZip = layout.buildDirectory.file("downloads/xr-face-mediapipe-pipeline.zip")
 
 val downloadFaceMediaPipePipelineAssets by tasks.registering {
     inputs.property("sourceUrl", faceMediaPipePipelineUrl)
@@ -20,7 +20,7 @@ val downloadFaceMediaPipePipelineAssets by tasks.registering {
         copy {
             from(zipTree(zipFile)) {
                 eachFile {
-                    path = path.removePrefix("face-mediapipe-pipeline/")
+                    path = path.removePrefix("xr-face-mediapipe-pipeline/")
                 }
                 includeEmptyDirs = false
             }
