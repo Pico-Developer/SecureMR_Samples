@@ -584,7 +584,7 @@ Pipeline& Pipeline::sortMatByColumn(const std::shared_ptr<PipelineTensor>& srcMa
   };
   CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
   xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*srcMat),
-                                         "operand0");
+                                         "input");
   if (result_sortedMat != nullptr) {
     xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle,
                                           static_cast<XrSecureMrPipelineTensorPICO>(*result_sortedMat), "sorted");
@@ -706,6 +706,91 @@ Pipeline& Pipeline::newTextureToGLTF(const std::shared_ptr<PipelineTensor>& gltf
 
   xrSetSecureMrOperatorResultByNamePICO(m_handle, opHandle,
                                         static_cast<XrSecureMrPipelineTensorPICO>(*result_newTextureId), "texture ID");
+  return *this;
+}
+
+Pipeline& Pipeline::microphone(const std::vector<std::shared_ptr<PipelineTensor>>& results,
+                               const XrSecureMrAudioFormatPcmPICO sampleFormat,
+                               const int32_t sampleRate) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorAudioMicrophonePICO microphoneConfig{.type = XR_TYPE_SECURE_MR_OPERATOR_AUDIO_MICROPHONE_PICO,
+                                                        .sampleFormat = sampleFormat,
+                                                        .sampleRate = sampleRate};
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorInfo = reinterpret_cast<XrSecureMrOperatorBaseHeaderPICO*>(&microphoneConfig),
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_AUDIO_MICROPHONE_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  for (size_t idx = 0; idx < results.size(); ++idx) {
+    if (results[idx] != nullptr) {
+      const std::string resultName = Fmt("result%zu", idx);
+      CHECK_XRCMD(xrSetSecureMrOperatorResultByNamePICO(
+          m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*results[idx]), resultName.c_str()))
+    }
+  }
+  return *this;
+}
+
+Pipeline& Pipeline::speaker(const std::shared_ptr<PipelineTensor>& src, const int32_t sampleRate) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorAudioSpeakerPICO speakerConfig{.type = XR_TYPE_SECURE_MR_OPERATOR_AUDIO_SPEAKER_PICO,
+                                                   .sampleRate = sampleRate};
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorInfo = reinterpret_cast<XrSecureMrOperatorBaseHeaderPICO*>(&speakerConfig),
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_AUDIO_SPEAKER_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  CHECK_XRCMD(
+      xrSetSecureMrOperatorOperandByNamePICO(m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*src),
+                                             "operand0"))
+  return *this;
+}
+
+Pipeline& Pipeline::depth(const std::shared_ptr<PipelineTensor>& result) {
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = XR_SECURE_MR_OPERATOR_TYPE_DEPTH_PICO,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  CHECK_XRCMD(xrSetSecureMrOperatorResultByNamePICO(
+      m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*result), "result0"))
+  return *this;
+}
+
+Pipeline& Pipeline::scenegraphVisibility(const std::shared_ptr<PipelineTensor>& scenegraph,
+                                         const std::shared_ptr<PipelineTensor>& visible) {
+  constexpr auto kScenegraphVisibilityOperatorType = static_cast<XrSecureMrOperatorTypePICO>(37);
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = kScenegraphVisibilityOperatorType,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  CHECK_XRCMD(xrSetSecureMrOperatorOperandByNamePICO(
+      m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*scenegraph), "scenegraph"))
+  if (visible != nullptr) {
+    CHECK_XRCMD(xrSetSecureMrOperatorOperandByNamePICO(
+        m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*visible), "visible"))
+  }
+  return *this;
+}
+
+Pipeline& Pipeline::updateComponent(const std::shared_ptr<PipelineTensor>& scenegraph,
+                                    const std::shared_ptr<PipelineTensor>& data) {
+  constexpr auto kUpdateComponentOperatorType = static_cast<XrSecureMrOperatorTypePICO>(38);
+  XrSecureMrOperatorPICO opHandle = XR_NULL_HANDLE;
+  XrSecureMrOperatorCreateInfoPICO operatorCreateInfo{
+      .type = XR_TYPE_SECURE_MR_OPERATOR_CREATE_INFO_PICO,
+      .operatorType = kUpdateComponentOperatorType,
+  };
+  CHECK_XRCMD(xrCreateSecureMrOperatorPICO(m_handle, &operatorCreateInfo, &opHandle))
+  CHECK_XRCMD(xrSetSecureMrOperatorOperandByNamePICO(
+      m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*scenegraph), "scenegraph"))
+  CHECK_XRCMD(xrSetSecureMrOperatorOperandByNamePICO(
+      m_handle, opHandle, static_cast<XrSecureMrPipelineTensorPICO>(*data), "data"))
   return *this;
 }
 

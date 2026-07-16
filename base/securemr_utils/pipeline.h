@@ -542,6 +542,36 @@ class Pipeline final : public XrHandleAdapter<XrSecureMrPipelinePICO>, public st
   Pipeline& newTextureToGLTF(const std::shared_ptr<PipelineTensor>& gltfPlaceholder,
                              const std::shared_ptr<PipelineTensor>& textureSrc,
                              const std::shared_ptr<PipelineTensor>& result_newTextureId);
+
+  /**
+   * Add an operator to read microphone audio samples.
+   */
+  Pipeline& microphone(const std::vector<std::shared_ptr<PipelineTensor>>& results,
+                       XrSecureMrAudioFormatPcmPICO sampleFormat = XR_SECURE_MR_AUDIO_FORMAT_PCM_16BIT_PICO,
+                       int32_t sampleRate = 16000);
+
+  /**
+   * Add an operator to play audio samples through the speaker.
+   */
+  Pipeline& speaker(const std::shared_ptr<PipelineTensor>& src, int32_t sampleRate = 16000);
+
+  /**
+   * Add an operator to read the depth tensor.
+   */
+  Pipeline& depth(const std::shared_ptr<PipelineTensor>& result);
+
+  /**
+   * Add an operator to switch a scenegraph entity's visibility.
+   */
+  Pipeline& scenegraphVisibility(const std::shared_ptr<PipelineTensor>& scenegraph,
+                                const std::shared_ptr<PipelineTensor>& visible);
+
+  /**
+   * Add an operator to update a scenegraph component from a tensor value.
+   */
+  Pipeline& updateComponent(const std::shared_ptr<PipelineTensor>& scenegraph,
+                            const std::shared_ptr<PipelineTensor>& data);
+
   /**
    * Add a render command to the pipeline.
    *
